@@ -2,6 +2,7 @@
 //!
 //! Core pieces:
 //!
+//! - Foo
 //! - [`join_semilattice`]: traits and helpers for
 //!   **join-semilattices**
 //! - [`crdt`]: classic **state-based CRDTs** built on those lattices:
