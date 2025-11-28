@@ -6,6 +6,7 @@ Lattice-based state + async cells for Rust:
 - `LVar<L>`: monotone, join-only async cell
 - `MVar<T>`: classic single-slot async cell (not monotone)
 - `GCounter<Id>`: grow-only CRDT counter
+- `GSet<T>`: grow-only CRDT set
 - `JoinStreamExt`: fold `Stream<Item = L>` by lattice join
 
 ```rust

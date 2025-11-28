@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::hash::Hash;
 
 use crate::join_semilattice::BoundedJoinSemilattice;
@@ -137,6 +138,74 @@ where
     }
 }
 
+/// A **grow-only set (G-Set)** CRDT.
+///
+/// State is a set of elements; updates only ever **add** elements,
+/// and merging replicas uses set union. This is the set analogue of
+/// `GCounter`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GSet<T>
+where
+    T: Eq + Hash,
+{
+    elems: HashSet<T>,
+}
+
+impl<T> GSet<T>
+where
+    T: Eq + Hash + Clone,
+{
+    /// Create an empty grow-only set.
+    pub fn new() -> Self {
+        Self {
+            elems: HashSet::new(),
+        }
+    }
+
+    /// Insert an element (monotone: once present, it never
+    /// disappears).
+    pub fn insert(&mut self, x: T) {
+        self.elems.insert(x);
+    }
+
+    /// Current elements.
+    pub fn elements(&self) -> &HashSet<T> {
+        &self.elems
+    }
+
+    /// Does the set contain this element?
+    pub fn contains(&self, x: &T) -> bool {
+        self.elems.contains(x)
+    }
+
+    /// Merge a remote state into this one using lattice join (union).
+    pub fn merge(&mut self, other: &GSet<T>) {
+        self.elems = self.elems.join(&other.elems);
+    }
+}
+
+impl<T> JoinSemilattice for GSet<T>
+where
+    T: Eq + Hash + Clone,
+{
+    /// Lattice join: union of sets.
+    fn join(&self, other: &Self) -> Self {
+        let mut out = self.elems.clone();
+        out.extend(other.elems.iter().cloned());
+        GSet { elems: out }
+    }
+}
+
+impl<T> BoundedJoinSemilattice for GSet<T>
+where
+    T: Eq + Hash + Clone,
+{
+    /// Bottom = empty set.
+    fn bottom() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,5 +275,42 @@ mod tests {
 
         assert_eq!(a1.value(), b1.value());
         assert_eq!(a1.value(), a2.value());
+    }
+
+    #[test]
+    fn gset_local_add() {
+        let mut s = GSet::new();
+        assert!(!s.contains(&"a"));
+
+        s.insert("a");
+        s.insert("b");
+        s.insert("b"); // idempotent
+
+        assert!(s.contains(&"a"));
+        assert!(s.contains(&"b"));
+        assert_eq!(s.elements().len(), 2);
+    }
+
+    #[test]
+    fn gset_merge_converges() {
+        let mut a = GSet::new();
+        let mut b = GSet::new();
+
+        a.insert("a");
+        a.insert("b");
+        b.insert("b");
+        b.insert("c");
+
+        let a_state = a.clone();
+        let b_state = b.clone();
+
+        a.merge(&b_state);
+        b.merge(&a_state);
+
+        assert!(a.contains(&"a"));
+        assert!(a.contains(&"b"));
+        assert!(a.contains(&"c"));
+
+        assert_eq!(a, b);
     }
 }
