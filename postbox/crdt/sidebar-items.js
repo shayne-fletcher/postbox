@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["GCounter","GCounterState","GSet"]};
+window.SIDEBAR_ITEMS = {"struct":["GCounter","GCounterState","GSet","PNCounter","PNCounterState"]};
