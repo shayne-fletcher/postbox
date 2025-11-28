@@ -1,12 +1,18 @@
 //! # postbox — lattice basics + async join cells
 //!
 //! Core pieces:
+//!
 //! - [`join_semilattice`]: traits and helpers for
 //!   **join-semilattices**
+//! - [`crdt`]: classic **state-based CRDTs** built on those lattices:
+//!   - [`crdt::GCounter`]: grow-only counter
+//!   - [`crdt::GSet`]: grow-only set
+//!   - [`crdt::PNCounter`]: increment/decrement counter built from
+//!     two GCounters
 //! - [`lvar`] *(feature = "async")*: an **LVar-style** cell whose
 //!   state only grows by lattice join
 //! - [`join_stream_ext`] *(feature = "async")*: stream adapters to
-//!   fold by join
+//!   fold `Stream<Item = L>` by lattice join
 //! - [`mvar`] *(feature = "async")*: a classic **MVar** (single-slot
 //!   put/take), separate from the monotone cell
 //!
