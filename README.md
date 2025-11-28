@@ -7,6 +7,7 @@ Lattice-based state + async cells for Rust:
 - `MVar<T>`: classic single-slot async cell (not monotone)
 - `GCounter<Id>`: grow-only CRDT counter
 - `GSet<T>`: grow-only CRDT set
+- `PNCounter<Id>`: increment/decrement CRDT counter built from two GCounters
 - `JoinStreamExt`: fold `Stream<Item = L>` by lattice join
 
 ```rust
