@@ -79,7 +79,7 @@ jobs:
         cache-all-crates: true
     - name: build docs
       working-directory: '.'
-      run: cargo doc --no-deps
+      run: cargo doc --no-deps --all-features
     - name: accelerate gh_pages refresh by noting there are no jekyll templates
       working-directory: '.'
       run: touch target/doc/.nojekyll
