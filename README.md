@@ -1,4 +1,4 @@
-# postbox
+# postbox [![Build and test](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml)
 
 Lattice-based state + async cells for Rust:
 
