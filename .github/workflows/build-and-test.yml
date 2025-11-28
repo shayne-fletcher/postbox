@@ -58,9 +58,13 @@ jobs:
   publish-docs:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Allows pushing to the `gh-pages` branch
+      pages: write
+      id-token: write
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v4.1.0
     - uses: SebRollen/toml-action@v1.0.2
@@ -80,11 +84,13 @@ jobs:
     - name: build docs
       working-directory: '.'
       run: cargo doc --no-deps --all-features
-    - name: accelerate gh_pages refresh by noting there are no jekyll templates
+    - name: add .nojekyll file
       working-directory: '.'
       run: touch target/doc/.nojekyll
-    - name: publish to gh_pages
-      uses: peaceiris/actions-gh-pages@v4
+    - name: upload artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: target/doc
+        path: target/doc
+    - name: deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
