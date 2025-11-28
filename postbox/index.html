@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="postbox — lattice basics + async join cells"><title>postbox - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="postbox" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0-nightly (c86564c41 2025-11-27)" data-channel="nightly" data-search-js="search-b9c1cd9b.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate postbox</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../postbox/index.html">postbox</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#postbox--lattice-basics--async-join-cells" title="postbox — lattice basics + async join cells">postbox — lattice basics + async join cells</a><ul><li><a href="#concepts" title="Concepts">Concepts</a></li><li><a href="#quick-start" title="Quick start">Quick start</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>postbox</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/postbox/lib.rs.html#1-80">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="postbox--lattice-basics--async-join-cells"><a class="doc-anchor" href="#postbox--lattice-basics--async-join-cells">§</a>postbox — lattice basics + async join cells</h2>
+<p>Core pieces:</p>
+<ul>
+<li><a href="join_semilattice/index.html" title="mod postbox::join_semilattice"><code>join_semilattice</code></a>: traits and helpers for
+<strong>join-semilattices</strong></li>
+<li><a href="lvar/index.html" title="mod postbox::lvar"><code>lvar</code></a> <em>(feature = “async”)</em>: an <strong>LVar-style</strong> cell whose
+state only grows by lattice join</li>
+<li><a href="join_stream_ext/index.html" title="mod postbox::join_stream_ext"><code>join_stream_ext</code></a> <em>(feature = “async”)</em>: stream adapters to
+fold by join</li>
+<li><a href="mvar/index.html" title="mod postbox::mvar"><code>mvar</code></a> <em>(feature = “async”)</em>: a classic <strong>MVar</strong> (single-slot
+put/take), separate from the monotone cell</li>
+</ul>
+<h3 id="concepts"><a class="doc-anchor" href="#concepts">§</a>Concepts</h3>
+<p>A <strong>join-semilattice</strong> is a type <code>L</code> with an operation <code>join: &amp;L × &amp;L → L</code> that is associative, commutative, and idempotent. It
+induces an order <code>x ≤ y</code> iff <code>x.join(y) == y</code>.</p>
+<ul>
+<li>Common joins: <code>max</code> (on numbers), <code>union</code> (on sets), <code>min</code> (on
+the dual order).</li>
+<li>If a bottom element ⊥ exists, implement
+[<code>BoundedJoinSemilattice</code>] so you can fold from empty.</li>
+</ul>
+<h3 id="quick-start"><a class="doc-anchor" href="#quick-start">§</a>Quick start</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::collections::HashSet;
+<span class="kw">use </span>postbox::join_semilattice::BoundedJoinSemilattice;
+<span class="kw">use </span>postbox::join_semilattice::JoinSemilattice;
+
+<span class="comment">// Join = union on sets
+</span><span class="kw">let </span>a: HashSet&lt;<span class="kw">_</span>&gt; = [<span class="number">1</span>,<span class="number">2</span>].into_iter().collect();
+<span class="kw">let </span>b: HashSet&lt;<span class="kw">_</span>&gt; = [<span class="number">2</span>,<span class="number">3</span>].into_iter().collect();
+<span class="kw">let </span>j = a.join(<span class="kw-2">&amp;</span>b);
+<span class="macro">assert_eq!</span>(j, HashSet::from([<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>]));
+<span class="macro">assert!</span>(HashSet::&lt;i32&gt;::bottom().is_empty());</code></pre></div><h4 id="async-enable-the-async-feature"><a class="doc-anchor" href="#async-enable-the-async-feature">§</a>Async (enable the <code>async</code> feature)</h4><div class="example-wrap"><pre class="language-toml"><code>postbox = { version = &quot;…&quot;, features = [&quot;async&quot;] }</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::collections::HashSet;
+<span class="kw">use </span>postbox::LVar;
+
+<span class="kw">let </span>cell = LVar::&lt;HashSet&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;::new();
+<span class="kw">let </span>target: HashSet&lt;<span class="kw">_</span>&gt; = [<span class="string">"a"</span>,<span class="string">"b"</span>,<span class="string">"c"</span>].into_iter().collect();
+<span class="kw">let </span>waiter = {
+  <span class="kw">let </span>cell = cell.clone();
+  tokio::spawn(<span class="kw">async move </span>{ cell.await_at_least(<span class="kw-2">&amp;</span>target).<span class="kw">await </span>})
+};
+cell.put_join(<span class="kw-2">&amp;</span>HashSet::from([<span class="string">"a"</span>]));
+cell.put_join(<span class="kw-2">&amp;</span>HashSet::from([<span class="string">"b"</span>,<span class="string">"c"</span>]));
+<span class="kw">let </span>got = waiter.<span class="kw">await</span>.unwrap();
+<span class="macro">assert!</span>(target.is_subset(<span class="kw-2">&amp;</span>got));</code></pre></div></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="crdt/index.html" title="mod postbox::crdt">crdt</a></dt><dd>CRDTs built on lattice combinators</dd><dt><a class="mod" href="join_semilattice/index.html" title="mod postbox::join_semilattice">join_<wbr>semilattice</a></dt><dd>Core algebra: join-semilattice traits and standard lattice
+helpers.</dd><dt><a class="mod" href="join_stream_ext/index.html" title="mod postbox::join_stream_ext">join_<wbr>stream_<wbr>ext</a></dt><dd>Stream extensions for folding by lattice joins (uses
+<code>futures::Stream</code>).
+Stream extensions for join-semilattices (feature = <code>"async"</code>).</dd><dt><a class="mod" href="lvar/index.html" title="mod postbox::lvar">lvar</a></dt><dd>Join-only, monotone cell (LVar): state increases via lattice
+<code>join</code>.</dd><dt><a class="mod" href="mvar/index.html" title="mod postbox::mvar">mvar</a></dt><dd>A classic single-slot async <strong>MVar</strong> (blocking put/take). Not
+monotone.
+MVar-style for Rust (tokio)</dd></dl></section></div></main></body></html>

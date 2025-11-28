@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["postbox",[["impl&lt;'a, L&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/iter/traits/collect/trait.FromIterator.html\" title=\"trait core::iter::traits::collect::FromIterator\">FromIterator</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.reference.html\">&amp;'a L</a>&gt; for <a class=\"struct\" href=\"postbox/join_semilattice/struct.JoinOf.html\" title=\"struct postbox::join_semilattice::JoinOf\">JoinOf</a>&lt;L&gt;<div class=\"where\">where\n    L: <a class=\"trait\" href=\"postbox/join_semilattice/trait.BoundedJoinSemilattice.html\" title=\"trait postbox::join_semilattice::BoundedJoinSemilattice\">BoundedJoinSemilattice</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html\" title=\"trait core::clone::Clone\">Clone</a>,</div>"],["impl&lt;L&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/iter/traits/collect/trait.FromIterator.html\" title=\"trait core::iter::traits::collect::FromIterator\">FromIterator</a>&lt;L&gt; for <a class=\"struct\" href=\"postbox/join_semilattice/struct.JoinOf.html\" title=\"struct postbox::join_semilattice::JoinOf\">JoinOf</a>&lt;L&gt;<div class=\"where\">where\n    L: <a class=\"trait\" href=\"postbox/join_semilattice/trait.BoundedJoinSemilattice.html\" title=\"trait postbox::join_semilattice::BoundedJoinSemilattice\">BoundedJoinSemilattice</a>,</div>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1425]}

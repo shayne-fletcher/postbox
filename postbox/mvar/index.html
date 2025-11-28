@@ -1,0 +1,32 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A classic single-slot async MVar (blocking put/take). Not monotone. MVar-style for Rust (tokio)"><title>postbox::mvar - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="postbox" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0-nightly (c86564c41 2025-11-27)" data-channel="nightly" data-search-js="search-b9c1cd9b.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module mvar</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../postbox/index.html">postbox</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module mvar</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#a-classic-single-slot-async-mvar-blocking-puttake-notmonotonemvar-style-for-rust-tokio" title="A classic single-slot async MVar (blocking put/take). Not monotone. MVar-style for Rust (tokio)">A classic single-slot async MVar (blocking put/take). Not monotone. MVar-style for Rust (tokio)</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate postbox</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">postbox</a></div><h1>Module <span>mvar</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/postbox/mvar.rs.html#1-250">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h3 id="a-classic-single-slot-async-mvar-blocking-puttake-notmonotonemvar-style-for-rust-tokio"><a class="doc-anchor" href="#a-classic-single-slot-async-mvar-blocking-puttake-notmonotonemvar-style-for-rust-tokio">§</a>A classic single-slot async <strong>MVar</strong> (blocking put/take). Not
+monotone.
+MVar-style for Rust (tokio)</h3>
+<p>A single-slot, either-empty-or-full container with blocking <code>put</code>
+and <code>take</code>, plus handy helpers (<code>try_</code> variants, <code>read_clone</code>,
+<code>with</code>, and <code>modify</code>). This mirrors the spirit of Haskell’s <code>MVar</code>
+from Simon Marlow’s <em>Parallel and Concurrent Programming in
+Haskell</em>, adapted for async Rust.</p>
+<p>Design notes</p>
+<ul>
+<li>State is <code>Option&lt;T&gt;</code> inside an async <code>Mutex</code>.</li>
+<li>Two <code>Notify</code>s model the conditions “became non-empty” and
+“became non-full”.</li>
+<li>We always subscribe to a <code>Notify</code> <em>before</em> dropping the lock to
+avoid lost wakeups.</li>
+<li><code>with</code> holds the lock while running a <strong>synchronous</strong> closure;
+don’t do async work there. Use <code>modify</code> for an async-friendly,
+exception/cancellation safe transform that temporarily empties
+the cell.</li>
+<li><code>read_clone</code> requires <code>T: Clone</code>; if you want a zero-copy
+reader, store an <code>Arc&lt;U&gt;</code> inside your <code>MVar</code>.</li>
+</ul>
+<p>Rough equivalences</p>
+<ul>
+<li><code>put</code>/<code>take</code> ~ bounded channel (capacity 1) send/recv, but with
+the cell identity retained and <code>read</code>/<code>modify</code> style ops
+supported.</li>
+<li>If you only need send/recv, <code>tokio::sync::mpsc(1)</code> or
+<code>async_channel::bounded(1)</code> may suffice. Choose <code>MVar</code> when
+you want the cell semantics.</li>
+</ul>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.MVar.html" title="struct postbox::mvar::MVar">MVar</a></dt></dl></section></div></main></body></html>

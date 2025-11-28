@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["JoinOf","Max","Min","NonEmptyJoinOf"],"trait":["BoundedJoinSemilattice","JoinSemilattice"]};
