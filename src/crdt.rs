@@ -138,6 +138,134 @@ where
     }
 }
 
+/// Internal lattice state of a **PN-Counter**.
+///
+/// A PN-Counter is represented as two grow-only counters:
+/// - `p`: counts increments
+/// - `n`: counts decrements
+///
+/// The lattice order is componentwise, and the join is just joining
+/// each component (`p` and `n`) using their lattice join.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PNCounterState<Id>
+where
+    Id: Eq + Hash,
+{
+    pub(crate) p: GCounterState<Id>,
+    pub(crate) n: GCounterState<Id>,
+}
+
+impl<Id> PNCounterState<Id>
+where
+    Id: Eq + Hash + Clone,
+{
+    /// Create a zero-initialized PN state (p = 0, n = 0).
+    pub fn new() -> Self {
+        Self {
+            p: GCounterState::bottom(),
+            n: GCounterState::bottom(),
+        }
+    }
+
+    /// Logical value = sum(p) - sum(n).
+    pub fn value(&self) -> i64 {
+        self.p.value() as i64 - self.n.value() as i64
+    }
+}
+
+impl<Id> JoinSemilattice for PNCounterState<Id>
+where
+    Id: Eq + Hash + Clone,
+{
+    /// Lattice join: componentwise join on `p` and `n`.
+    fn join(&self, other: &Self) -> Self {
+        Self {
+            p: self.p.join(&other.p),
+            n: self.n.join(&other.n),
+        }
+    }
+}
+
+impl<Id> BoundedJoinSemilattice for PNCounterState<Id>
+where
+    Id: Eq + Hash + Clone,
+{
+    /// Bottom = both components at bottom (all zeros).
+    fn bottom() -> Self {
+        Self::new()
+    }
+}
+
+/// A **PN-Counter** CRDT: supports increments *and* decrements.
+///
+/// It is implemented as:
+/// - `p`: a grow-only counter for positive increments
+/// - `n`: a grow-only counter for negative increments (decrements)
+///
+/// The observable value is `p_total - n_total`. Merges use lattice
+/// join on the underlying [`PNCounterState`], so replicas converge
+/// under arbitrary message reordering and duplication.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PNCounter<Id>
+where
+    Id: Eq + Hash,
+{
+    id: Id,
+    state: PNCounterState<Id>,
+}
+
+impl<Id> PNCounter<Id>
+where
+    Id: Eq + Hash + Clone,
+{
+    /// Create a new PN-Counter for this replica ID.
+    pub fn new(id: Id) -> Self {
+        Self {
+            id,
+            state: PNCounterState::new(),
+        }
+    }
+
+    /// Replica ID for this counter.
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    /// Logical value (may be negative).
+    pub fn value(&self) -> i64 {
+        self.state.value()
+    }
+
+    /// Access the underlying lattice state (for replication).
+    pub fn state(&self) -> &PNCounterState<Id> {
+        &self.state
+    }
+
+    /// Replace the underlying state (mainly for tests /
+    /// reconstruction).
+    pub fn set_state(&mut self, state: PNCounterState<Id>) {
+        self.state = state;
+    }
+
+    /// Monotone local increment on this replica.
+    pub fn inc(&mut self, delta: u64) {
+        self.state.p.inc_for(&self.id, delta);
+    }
+
+    /// Monotone local decrement on this replica.
+    ///
+    /// Implemented as incrementing the `n` component; the logical
+    /// value is `p_total - n_total`.
+    pub fn dec(&mut self, delta: u64) {
+        self.state.n.inc_for(&self.id, delta);
+    }
+
+    /// Merge a remote state using lattice join.
+    pub fn merge(&mut self, remote: &PNCounterState<Id>) {
+        self.state = self.state.join(remote);
+    }
+}
+
 /// A **grow-only set (G-Set)** CRDT.
 ///
 /// State is a set of elements; updates only ever **add** elements,
@@ -312,5 +440,91 @@ mod tests {
         assert!(a.contains(&"c"));
 
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn pncounter_local_inc_and_dec() {
+        let mut c = PNCounter::new("A");
+        assert_eq!(c.value(), 0);
+
+        c.inc(5); // +5
+        assert_eq!(c.value(), 5);
+
+        c.dec(2); // -2
+        assert_eq!(c.value(), 3);
+
+        c.dec(10); // can go negative
+        assert_eq!(c.value(), -7);
+    }
+
+    // This test simulates two PN-Counter replicas (A and B) that
+    // update locally, then exchange states and converge.
+    //
+    // Internally, a PN-Counter is two GCounters:
+    //   - p: grow-only counts for increments
+    //   - n: grow-only counts for decrements
+    // Each replica only bumps its own entries in p/n; merging uses
+    // lattice join (componentwise max on p and n). The logical value
+    // is sum(p) - sum(n).
+    //
+    // Here:
+    //   A does  +10, -3   → locally thinks 7
+    //   B does  +4,  -1   → locally thinks 3
+    // After exchanging and joining their states, both see:
+    //   p: {A:10, B:4}, n: {A:3, B:1} → (10+4) - (3+1) = 10
+    // The assertions check that both replicas converge to the same
+    // value (10), regardless of the order of merges.
+    #[test]
+    fn pncounter_merge_converges() {
+        // Two replicas: A and B.
+        let mut a = PNCounter::new("A");
+        let mut b = PNCounter::new("B");
+
+        // Local updates:
+        a.inc(10); // +10
+        a.dec(3); // -3   => A thinks: 7
+        b.inc(4); // +4
+        b.dec(1); // -1   => B thinks: 3
+
+        let a_state = a.state().clone();
+        let b_state = b.state().clone();
+
+        // Exchange states (in any order).
+        a.merge(&b_state);
+        b.merge(&a_state);
+
+        // Total: (10+4) - (3+1) = 14 - 4 = 10
+        assert_eq!(a.value(), 10);
+        assert_eq!(b.value(), 10);
+    }
+
+    #[test]
+    fn pncounter_merge_is_idempotent_and_commutative() {
+        let mut a = PNCounter::new(1u32);
+        let mut b = PNCounter::new(2u32);
+
+        a.inc(3);
+        a.dec(1); // net +2
+        b.inc(2);
+        b.dec(5); // net -3
+
+        let s1 = a.state().clone();
+        let s2 = b.state().clone();
+
+        // A merge B
+        let mut a1 = a.clone();
+        a1.merge(&s2);
+
+        // B merge A
+        let mut b1 = b.clone();
+        b1.merge(&s1);
+
+        // A merge B twice (idempotence)
+        let mut a2 = a.clone();
+        a2.merge(&s2);
+        a2.merge(&s2);
+
+        assert_eq!(a1.value(), b1.value());
+        assert_eq!(a1.value(), a2.value());
     }
 }
