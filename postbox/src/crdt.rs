@@ -55,6 +55,15 @@ impl<Id> JoinSemilattice for GCounterState<Id>
 where
     Id: Eq + Hash + Clone,
 {
+    /// Lattice join for GCounter state: pointwise `max` over
+    /// per-replica counts.
+    ///
+    /// Each replica ID maps to the **largest** count we have ever
+    /// seen for that replica, from either side. Concretely, for every
+    /// `(id → n)` in `other`, we update `out[id]` to `max(out[id],
+    /// n)` (or insert `n` if `id` is new). This makes `join`
+    /// associative, commutative, and idempotent, which is exactly
+    /// what we need for a state-based CRDT merge.
     fn join(&self, other: &Self) -> Self {
         let mut out = self.counts.clone();
         for (id, &n_other) in &other.counts {

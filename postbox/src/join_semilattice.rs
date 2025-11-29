@@ -163,25 +163,55 @@ impl<L: JoinSemilattice + Clone> BoundedJoinSemilattice for Option<L> {
 
 // Product lattice: componentwise join
 
-impl<A, B> JoinSemilattice for (A, B)
-where
-    A: JoinSemilattice + Clone,
-    B: JoinSemilattice + Clone,
-{
-    fn join(&self, other: &Self) -> Self {
-        (self.0.join(&other.0), self.1.join(&other.1))
+// impl<A, B> JoinSemilattice for (A, B)
+// where
+//     A: JoinSemilattice + Clone,
+//     B: JoinSemilattice + Clone,
+// {
+//     fn join(&self, other: &Self) -> Self {
+//         (self.0.join(&other.0), self.1.join(&other.1))
+//     }
+// }
+//
+// impl<A, B> BoundedJoinSemilattice for (A, B)
+// where
+//     A: BoundedJoinSemilattice + Clone,
+//     B: BoundedJoinSemilattice + Clone,
+// {
+//     fn bottom() -> Self {
+//         (A::bottom(), B::bottom())
+//     }
+// }
+
+macro_rules! impl_product_lattice {
+    ( $( $T:ident : $idx:tt ),+ ) => {
+        impl<$( $T ),+> JoinSemilattice for ( $( $T, )+ )
+        where
+            $( $T: JoinSemilattice ),+
+        {
+            fn join(&self, other: &Self) -> Self {
+                (
+                    $( self.$idx.join(&other.$idx) ),+
+                )
+            }
+        }
+
+        impl<$( $T ),+> BoundedJoinSemilattice for ( $( $T, )+ )
+        where
+            $( $T: BoundedJoinSemilattice ),+
+        {
+            fn bottom() -> Self {
+                (
+                    $( $T::bottom() ),+
+                )
+            }
+        }
     }
 }
 
-impl<A, B> BoundedJoinSemilattice for (A, B)
-where
-    A: BoundedJoinSemilattice + Clone,
-    B: BoundedJoinSemilattice + Clone,
-{
-    fn bottom() -> Self {
-        (A::bottom(), B::bottom())
-    }
-}
+impl_product_lattice!(A:0, B:1);
+impl_product_lattice!(A:0, B:1, C:2);
+impl_product_lattice!(A:0, B:1, C:2, D:3);
 
 // JoinOf<L> (bounded)
 
@@ -324,5 +354,79 @@ mod tests {
         // For the bounded collector, empty → bottom (∅ for sets).
         let JoinOf(u) = std::iter::empty::<HashSet<i32>>().collect::<JoinOf<_>>();
         assert!(u.is_empty());
+    }
+
+    #[test]
+    fn product_join_is_componentwise() {
+        // A = Max<u32>, join = max
+        let a = (Max(1u32), Max(10u32));
+        let b = (Max(3u32), Max(7u32));
+
+        let j = a.join(&b);
+
+        // Componentwise max: (max(1,3), max(10,7)) = (3, 10)
+        assert_eq!(j, (Max(3u32), Max(10u32)));
+    }
+
+    #[test]
+    fn product_bottom_is_pair_of_bottoms() {
+        // Use a simple bounded lattice: HashSet join = union, bottom = ∅
+        type L = (HashSet<i32>, HashSet<i32>);
+
+        let b: L = <L as BoundedJoinSemilattice>::bottom();
+
+        // Both components should be the bottom of HashSet, i.e., empty.
+        assert!(b.0.is_empty());
+        assert!(b.1.is_empty());
+    }
+
+    #[cfg(all(test, feature = "derive"))]
+    mod derive_tests {
+        use super::*;
+        use crate::join_semilattice::{BoundedJoinSemilattice, JoinSemilattice};
+        use crate::{BoundedJoinSemilatticeDerive, JoinSemilatticeDerive};
+
+        #[derive(
+            Debug, Clone, PartialEq, Eq, JoinSemilatticeDerive, BoundedJoinSemilatticeDerive,
+        )]
+        struct Foo {
+            // Both of these already have JoinSemilattice /
+            // BoundedJoinSemilattice impls.
+            a: Max<i32>,     // join = max, bottom = min_value()
+            b: HashSet<i32>, // join = union, bottom = ∅
+        }
+
+        #[test]
+        fn derived_join_is_fieldwise() {
+            let x = Foo {
+                a: Max(1),
+                b: set(&[1, 2]), // helper from outer tests module
+            };
+            let y = Foo {
+                a: Max(3),
+                b: set(&[2, 3]),
+            };
+
+            let z = x.join(&y);
+
+            // Check that each field is joined individually.
+            assert_eq!(z.a, x.a.join(&y.a));
+            assert_eq!(z.b, x.b.join(&y.b));
+
+            // And that the whole Foo behaves as expected.
+            assert_eq!(z.a, Max(3));
+            assert_eq!(z.b, set(&[1, 2, 3]));
+        }
+
+        #[test]
+        fn derived_bottom_is_struct_of_bottoms() {
+            let b = Foo::bottom();
+
+            // Max<i32> bottom is min_value()
+            assert_eq!(b.a, Max(num_traits::Bounded::min_value()));
+
+            // HashSet bottom is empty set
+            assert!(b.b.is_empty());
+        }
     }
 }

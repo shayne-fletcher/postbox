@@ -1,0 +1,25 @@
+[package]
+name = "postbox"
+version = "0.1.0"
+edition = "2021"
+description = "Lattice-based state, LVars, MVars, and CRDT building blocks for async Rust."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourname/postbox"
+readme = "README.md"
+
+[features]
+default = ["async", "derive"]
+async = ["tokio", "futures", "async-trait"]
+derive = ["postbox_derive"]
+
+[dependencies]
+num-traits = "0.2"
+postbox_derive = { path = "../postbox_derive", optional = true }
+# Async + streams
+tokio       = { version = "1.48", default-features = false, features = ["sync","time","macros","rt-multi-thread"], optional = true }
+futures     = { version = "0.3", optional = true }
+async-trait = { version = "0.1", optional = true }
+
+[dev-dependencies]
+tokio   = { version = "1.48", features = ["macros","rt-multi-thread","time"] }
+futures = "0.3"

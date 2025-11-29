@@ -63,9 +63,16 @@
 //! # }
 //! ```
 
+// Make the current crate visible as `postbox` so the deive macros
+// that use `::postbox::...` work both here and in downstream crates.
+extern crate self as postbox;
+
 /// Core algebra: join-semilattice traits and standard lattice
 /// helpers.
 pub mod join_semilattice;
+
+/// CRDTs built on lattice combinators
+pub mod crdt;
 
 #[cfg(feature = "async")]
 /// Join-only, monotone cell (LVar): state increases via lattice
@@ -82,5 +89,11 @@ pub mod join_stream_ext;
 /// monotone.
 pub mod mvar;
 
-/// CRDTs built on lattice combinators
-pub mod crdt;
+// Re-export the traits
+pub use join_semilattice::BoundedJoinSemilattice;
+pub use join_semilattice::JoinSemilattice;
+
+// Re-export derive macros when the feature is enabled
+#[cfg(feature = "derive")]
+pub use postbox_derive::BoundedJoinSemilattice as BoundedJoinSemilatticeDerive;
+pub use postbox_derive::JoinSemilattice as JoinSemilatticeDerive;
