@@ -20,6 +20,7 @@ Lattice-based state + async cells for Rust:
 - `TwoPSet<T>`: two-phase set (add + remove, but no re-add after remove)
 - `ORSet<Id, T>`: observed-remove set (supports re-adding after remove)
 - `LWW<T>`: last-writer-wins register
+- `MVRegister<T, Ts, Id>`: multi-value register (keeps all concurrent writes)
 
 **Stream extensions:**
 - `JoinStreamExt`: fold `Stream<Item = L>` by lattice join

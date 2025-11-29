@@ -36,9 +36,11 @@
 //! - [`LWW<T>`]:
 //!   a **Last-Writer-Wins register** lattice storing `(value, ts)`
 //!   and resolving conflicts by picking the value with the larger
-//!   logical timestamp. This is useful as a simple register CRDT on
-//!   its own, or wrapped in `Option<LWW<T>>` when a true bottom
-//!   element is needed.
+//!   timestamp.
+//!
+//! - [`MVRegister<T, Ts, Id>`]:
+//!   a **Multi-Value Register** that keeps all values written at the
+//!   maximum timestamp, handling concurrent writes by keeping all of them.
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -741,6 +743,104 @@ impl<T: Clone> JoinSemilattice for LWW<T> {
     }
 }
 
+/// A **Multi-Value Register** lattice.
+///
+/// Unlike LWW which picks a single winner, MVRegister keeps all
+/// values that were written at the maximum timestamp. This handles
+/// concurrent writes by keeping all of them.
+///
+/// Structure: a set of `(value, timestamp, replica_id)` entries.
+/// - Join: union the sets, then keep only entries with max timestamp
+/// - Read: all values at the max timestamp (may be multiple if
+///   concurrent)
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MVRegister<T, Ts, Id>
+where
+    T: Eq + Hash + Clone,
+    Ts: Eq + Hash + Ord + Clone,
+    Id: Eq + Hash + Clone,
+{
+    entries: HashSet<(T, Ts, Id)>,
+}
+
+impl<T, Ts, Id> MVRegister<T, Ts, Id>
+where
+    T: Eq + Hash + Clone,
+    Ts: Eq + Hash + Ord + Clone,
+    Id: Eq + Hash + Clone,
+{
+    /// Create an empty MVRegister.
+    pub fn new() -> Self {
+        Self {
+            entries: HashSet::new(),
+        }
+    }
+
+    /// Write a value with the given timestamp and replica ID.
+    pub fn write(&mut self, value: T, timestamp: Ts, replica_id: Id) {
+        self.entries.insert((value, timestamp, replica_id));
+        self.prune_dominated();
+    }
+
+    /// Get all current values (may be multiple if there were concurrent writes).
+    pub fn values(&self) -> Vec<T> {
+        self.entries.iter().map(|(v, _, _)| v.clone()).collect()
+    }
+
+    /// Get the maximum timestamp.
+    pub fn max_timestamp(&self) -> Option<&Ts> {
+        self.entries.iter().map(|(_, ts, _)| ts).max()
+    }
+
+    /// Remove entries that are dominated (have timestamps less than
+    /// max).
+    fn prune_dominated(&mut self) {
+        if let Some(max_ts) = self.max_timestamp().cloned() {
+            self.entries.retain(|(_, ts, _)| ts == &max_ts);
+        }
+    }
+
+    /// Number of concurrent values.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Is the register empty?
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+impl<T, Ts, Id> JoinSemilattice for MVRegister<T, Ts, Id>
+where
+    T: Eq + Hash + Clone,
+    Ts: Eq + Hash + Ord + Clone,
+    Id: Eq + Hash + Clone,
+{
+    /// Lattice join: union entries, then keep only those with max
+    /// timestamp.
+    fn join(&self, other: &Self) -> Self {
+        let mut entries = self.entries.clone();
+        entries.extend(other.entries.iter().cloned());
+
+        let mut result = Self { entries };
+        result.prune_dominated();
+        result
+    }
+}
+
+impl<T, Ts, Id> BoundedJoinSemilattice for MVRegister<T, Ts, Id>
+where
+    T: Eq + Hash + Clone,
+    Ts: Eq + Hash + Ord + Clone,
+    Id: Eq + Hash + Clone,
+{
+    /// Bottom = no entries.
+    fn bottom() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1063,5 +1163,46 @@ mod tests {
         // Idempotent: a ⊔ a == a
         let aa = a.join(&a);
         assert_eq!(aa, a);
+    }
+
+    #[test]
+    fn mvregister_keeps_concurrent_writes() {
+        let mut a = MVRegister::new();
+        let mut b = MVRegister::new();
+
+        // Both replicas write at timestamp 10 (concurrent)
+        a.write("value_a", 10, "A");
+        b.write("value_b", 10, "B");
+
+        let merged = a.join(&b);
+
+        // Should keep both values since they're concurrent
+        assert_eq!(merged.len(), 2);
+        assert!(merged.values().contains(&"value_a"));
+        assert!(merged.values().contains(&"value_b"));
+    }
+
+    #[test]
+    fn mvregister_overwrites_older_values() {
+        let mut r = MVRegister::new();
+
+        r.write("old", 5, "A");
+        r.write("new", 10, "B");
+
+        // Only the newer value should remain
+        assert_eq!(r.len(), 1);
+        assert_eq!(r.values(), vec!["new"]);
+    }
+
+    #[test]
+    fn mvregister_ignores_stale_writes() {
+        let mut r = MVRegister::new();
+
+        r.write("current", 10, "A");
+        r.write("stale", 5, "B"); // This gets pruned immediately
+
+        // Only the value at max timestamp remains
+        assert_eq!(r.len(), 1);
+        assert_eq!(r.values(), vec!["current"]);
     }
 }

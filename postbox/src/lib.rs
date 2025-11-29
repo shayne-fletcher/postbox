@@ -12,6 +12,8 @@
 //!   - [`crdt::TwoPSet`]: two-phase set (add + remove, no re-add)
 //!   - [`crdt::ORSet`]: observed-remove set (supports re-add)
 //!   - [`crdt::LWW`]: last-writer-wins register
+//!   - [`crdt::MVRegister`]: multi-value register (keeps all
+//!      concurrent writes)
 //! - [`lvar`] *(feature = "async")*: an **LVar-style** cell whose
 //!   state only grows by lattice join
 //! - [`join_stream_ext`] *(feature = "async")*: stream adapters to
