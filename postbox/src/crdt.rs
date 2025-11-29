@@ -21,6 +21,12 @@
 //! - [`GSet`]:
 //!   grow-only set where updates only **add** elements and merges use
 //!   set union.
+//!
+//! - [`ORSetState`] / [`ORSet`]:
+//!   an add-wins **Observed-Remove Set** that supports both inserts
+//!   and removes by tagging adds and recording tombstones for
+//!   observed tags; merges are just lattice joins on the underlying
+//!   add/remove sets.
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -366,6 +372,187 @@ where
     }
 }
 
+/// Internal lattice state of an **add-wins observed-remove set
+/// (OR-Set)**.
+///
+/// State is a pair of grow-only sets:
+/// - `adds`:    tagged insertions `(elem, tag)`
+/// - `removes`: tagged removals  `(elem, tag)`
+///
+/// The logical value of the set is:
+///   `{ x | ∃ tag. (x, tag) ∈ adds ∧ (x, tag) ∉ removes }`.
+///
+/// Lattice order is componentwise (`adds` and `removes` are both
+/// grow-only sets); join is their union. This makes it a classic
+/// state-based OR-Set lattice.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ORSetState<T, Tag>
+where
+    T: Eq + Hash,
+    Tag: Eq + Hash,
+{
+    adds: HashSet<(T, Tag)>,
+    removes: HashSet<(T, Tag)>,
+}
+
+impl<T, Tag> ORSetState<T, Tag>
+where
+    T: Eq + Hash + Clone,
+    Tag: Eq + Hash + Clone,
+{
+    /// Empty OR-Set state: no adds, no removes.
+    pub fn new() -> Self {
+        Self {
+            adds: HashSet::new(),
+            removes: HashSet::new(),
+        }
+    }
+
+    /// Underlying add-tag set.
+    pub fn adds(&self) -> &HashSet<(T, Tag)> {
+        &self.adds
+    }
+
+    /// Underlying remove-tag set.
+    pub fn removes(&self) -> &HashSet<(T, Tag)> {
+        &self.removes
+    }
+
+    /// Logical elements present in this state.
+    pub fn elements(&self) -> HashSet<T> {
+        let mut out = HashSet::new();
+        for (x, t) in &self.adds {
+            if !self.removes.contains(&(x.clone(), t.clone())) {
+                out.insert(x.clone());
+            }
+        }
+        out
+    }
+}
+
+impl<T, Tag> JoinSemilattice for ORSetState<T, Tag>
+where
+    T: Eq + Hash + Clone,
+    Tag: Eq + Hash + Clone,
+{
+    /// Lattice join: union on adds and removes.
+    ///
+    /// This is just the product lattice of two G-Sets:
+    ///   (adds1, removes1) ⊔ (adds2, removes2)
+    ///   = (adds1 ∪ adds2, removes1 ∪ removes2)
+    fn join(&self, other: &Self) -> Self {
+        let mut adds = self.adds.clone();
+        adds.extend(other.adds.iter().cloned());
+
+        let mut removes = self.removes.clone();
+        removes.extend(other.removes.iter().cloned());
+
+        Self { adds, removes }
+    }
+}
+
+impl<T, Tag> BoundedJoinSemilattice for ORSetState<T, Tag>
+where
+    T: Eq + Hash + Clone,
+    Tag: Eq + Hash + Clone,
+{
+    /// Bottom = empty adds/removes.
+    fn bottom() -> Self {
+        Self::new()
+    }
+}
+
+/// An **add-wins OR-Set** CRDT.
+///
+/// Each `add(x)` is tagged with a unique, per-replica identifier. A
+/// `remove(x)` records tombstones for all tags of `x` currently
+/// visible at that replica. The logical element set is:
+///
+///   `{ x | ∃ tag. (x, tag) ∈ adds ∧ (x, tag) ∉ removes }`.
+///
+/// This implementation uses tags of the form `(Id, u64)` where `Id`
+/// is the replica ID and `u64` is a local counter.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ORSet<Id, T>
+where
+    Id: Eq + Hash + Clone,
+    T: Eq + Hash + Clone,
+{
+    id: Id,
+    clock: u64,
+    state: ORSetState<T, (Id, u64)>,
+}
+
+impl<Id, T> ORSet<Id, T>
+where
+    Id: Eq + Hash + Clone,
+    T: Eq + Hash + Clone,
+{
+    /// Create a new OR-Set for this replica ID.
+    pub fn new(id: Id) -> Self {
+        Self {
+            id,
+            clock: 0,
+            state: ORSetState::bottom(),
+        }
+    }
+
+    /// Replica ID.
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    /// Current logical elements.
+    pub fn elements(&self) -> HashSet<T> {
+        self.state.elements()
+    }
+
+    /// Access underlying lattice state (for replication).
+    pub fn state(&self) -> &ORSetState<T, (Id, u64)> {
+        &self.state
+    }
+
+    /// Replace underlying state (mainly for tests / reconstruction).
+    pub fn set_state(&mut self, state: ORSetState<T, (Id, u64)>) {
+        self.state = state;
+    }
+
+    /// Add an element. This is implemented as:
+    ///   - bump the local clock
+    ///   - insert (elem, (id, clock)) into the adds set
+    pub fn add(&mut self, x: T) {
+        self.clock = self.clock.wrapping_add(1);
+        let tag = (self.id.clone(), self.clock);
+        self.state.adds.insert((x, tag));
+    }
+
+    /// Remove an element. Implemented as adding tombstones in the
+    /// removes set for all known tags of `x`.
+    pub fn remove(&mut self, x: &T) {
+        // Collect tags for x that we currently know about.
+        let tags: Vec<_> = self
+            .state
+            .adds
+            .iter()
+            .filter_map(|(e, tag)| if e == x { Some(tag.clone()) } else { None })
+            .collect();
+
+        for tag in tags {
+            self.state.removes.insert((x.clone(), tag));
+        }
+    }
+
+    /// Merge a remote state using lattice join.
+    pub fn merge(&mut self, remote: &ORSetState<T, (Id, u64)>) {
+        self.state = self.state.join(remote);
+    }
+
+    /// Does the logical set contain this element?
+    pub fn contains(&self, x: &T) -> bool {
+        self.elements().contains(x)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -558,5 +745,44 @@ mod tests {
 
         assert_eq!(a1.value(), b1.value());
         assert_eq!(a1.value(), a2.value());
+    }
+
+    #[test]
+    fn orset_local_add_and_remove() {
+        let mut s = ORSet::new("A");
+
+        s.add("a");
+        s.add("b");
+        assert!(s.contains(&"a"));
+        assert!(s.contains(&"b"));
+
+        s.remove(&"a");
+        assert!(!s.contains(&"a"));
+        assert!(s.contains(&"b"));
+    }
+
+    #[test]
+    fn orset_merge_converges() {
+        // Two replicas: A and B.
+        let mut a = ORSet::new("A");
+        let mut b = ORSet::new("B");
+
+        // Both add "x" independently.
+        a.add("x");
+        b.add("x");
+
+        // A removes "x" based on what it has seen so far.
+        a.remove(&"x");
+
+        // Capture states and merge in both directions.
+        let a_state = a.state().clone();
+        let b_state = b.state().clone();
+
+        a.merge(&b_state);
+        b.merge(&a_state);
+
+        // Whatever the winning policy for this pattern, both replicas
+        // must converge to the same logical view.
+        assert_eq!(a.elements(), b.elements());
     }
 }
