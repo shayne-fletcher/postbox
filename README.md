@@ -1,4 +1,4 @@
-# postbox
+/Users/shayne/Downloads/README_postbox.md /Users/shayne/Downloads/README_postbox.md # postbox
 
 [![Build and test](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml)
 
@@ -21,4 +21,19 @@ let a: HashSet<_> = [1, 2].into_iter().collect();
 let b: HashSet<_> = [2, 3].into_iter().collect();
 let j = a.join(&b);
 assert_eq!(j, HashSet::from([1, 2, 3]));
+```
+
+### Derive example (`postbox_derive`)
+
+```rust
+use std::collections::HashSet;
+
+use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, Max};
+use postbox_derive::{JoinSemilatticeDerive, BoundedJoinSemilatticeDerive};
+
+#[derive(Debug, Clone, PartialEq, Eq, JoinSemilatticeDerive, BoundedJoinSemilatticeDerive)]
+struct Foo {
+    a: Max<i32>,       // join = max, bottom = i32::MIN
+    b: HashSet<i32>,   // join = union, bottom = ∅
+}
 ```
