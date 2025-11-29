@@ -22,11 +22,23 @@
 //!   grow-only set where updates only **add** elements and merges use
 //!   set union.
 //!
+//! - [`TwoPSetState`] / [`TwoPSet`]:
+//!   a **Two-Phase Set** that supports both adds and removes, but
+//!   once an element is removed, it cannot be re-added (simpler than
+//!   OR-Set).
+//!
 //! - [`ORSetState`] / [`ORSet`]:
 //!   an add-wins **Observed-Remove Set** that supports both inserts
 //!   and removes by tagging adds and recording tombstones for
 //!   observed tags; merges are just lattice joins on the underlying
 //!   add/remove sets.
+//!
+//! - [`LWW<T>`]:
+//!   a **Last-Writer-Wins register** lattice storing `(value, ts)`
+//!   and resolving conflicts by picking the value with the larger
+//!   logical timestamp. This is useful as a simple register CRDT on
+//!   its own, or wrapped in `Option<LWW<T>>` when a true bottom
+//!   element is needed.
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -372,6 +384,155 @@ where
     }
 }
 
+/// Internal lattice state of a **Two-Phase Set (2P-Set)**.
+///
+/// A 2P-Set has two grow-only sets:
+/// - `adds`: elements that` have been added
+/// - `removes`: elements that have been removed
+///
+/// An element is in the logical set iff it's in `adds` and NOT in
+/// `removes`. Once an element appears in `removes`, it can never be
+/// in the logical set again (the "two-phase" property).
+///
+/// Lattice order is componentwise (both sets grow); join is union of
+/// both components.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TwoPSetState<T>
+where
+    T: Eq + Hash,
+{
+    adds: HashSet<T>,
+    removes: HashSet<T>,
+}
+
+impl<T> TwoPSetState<T>
+where
+    T: Eq + Hash + Clone,
+{
+    /// Empty 2P-Set: no adds, no removes.
+    pub fn new() -> Self {
+        Self {
+            adds: HashSet::new(),
+            removes: HashSet::new(),
+        }
+    }
+
+    /// Elements that have been added.
+    pub fn adds(&self) -> &HashSet<T> {
+        &self.adds
+    }
+
+    /// Underlying remove-set (tombstones).
+    pub fn removes(&self) -> &HashSet<T> {
+        &self.removes
+    }
+
+    /// Logical elements: in `adds` but not in `removes`.
+    pub fn elements(&self) -> HashSet<T> {
+        self.adds.difference(&self.removes).cloned().collect()
+    }
+
+    /// Check if an element is in the logical set.
+    pub fn contains(&self, x: &T) -> bool {
+        self.adds.contains(x) && !self.removes.contains(x)
+    }
+}
+
+impl<T> JoinSemilattice for TwoPSetState<T>
+where
+    T: Eq + Hash + Clone,
+{
+    /// Lattice join: union on both `adds` and `removes`.
+    fn join(&self, other: &Self) -> Self {
+        let mut adds = self.adds.clone();
+        adds.extend(other.adds.iter().cloned());
+
+        let mut removes = self.removes.clone();
+        removes.extend(other.removes.iter().cloned());
+
+        Self { adds, removes }
+    }
+}
+
+impl<T> BoundedJoinSemilattice for TwoPSetState<T>
+where
+    T: Eq + Hash + Clone,
+{
+    /// Bottom = empty adds and removes.
+    fn bottom() -> Self {
+        Self::new()
+    }
+}
+
+/// A **Two-Phase Set (2P-Set)** CRDT.
+///
+/// Supports adding and removing elements, but once removed, an
+/// element cannot be re-added (unlike OR-Set). This makes it simpler
+/// but less flexible than OR-Set.
+///
+/// The 2P-Set maintains two sets:
+/// - additions: elements that have been added
+/// - removals: tombstones for removed elements
+///
+/// An element is in the set iff it's been added but not removed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TwoPSet<T>
+where
+    T: Eq + Hash + Clone,
+{
+    state: TwoPSetState<T>,
+}
+
+impl<T> TwoPSet<T>
+where
+    T: Eq + Hash + Clone,
+{
+    /// Create a new empty 2P-Set.
+    pub fn new() -> Self {
+        Self {
+            state: TwoPSetState::bottom(),
+        }
+    }
+
+    /// Current logical elements.
+    pub fn elements(&self) -> HashSet<T> {
+        self.state.elements()
+    }
+
+    /// Check if the set contains an element.
+    pub fn contains(&self, x: &T) -> bool {
+        self.state.contains(x)
+    }
+
+    /// Access underlying lattice state (for replication).
+    pub fn state(&self) -> &TwoPSetState<T> {
+        &self.state
+    }
+
+    /// Replace underlying state.
+    pub fn set_state(&mut self, state: TwoPSetState<T>) {
+        self.state = state;
+    }
+
+    /// Add an element to the set.
+    /// If the element was previously removed, this has no effect
+    /// (2P-Set property).
+    pub fn add(&mut self, x: T) {
+        self.state.adds.insert(x);
+    }
+
+    /// Remove an element from the set.
+    /// Once removed, the element cannot be re-added.
+    pub fn remove(&mut self, x: T) {
+        self.state.removes.insert(x);
+    }
+
+    /// Merge a remote state using lattice join.
+    pub fn merge(&mut self, remote: &TwoPSetState<T>) {
+        self.state = self.state.join(remote);
+    }
+}
+
 /// Internal lattice state of an **add-wins observed-remove set
 /// (OR-Set)**.
 ///
@@ -553,6 +714,33 @@ where
     }
 }
 
+/// A **Last-Writer-Wins register** lattice.
+///
+/// The state is a pair `(value, ts)` where `ts` is a logical
+/// timestamp (e.g. Lamport clock, HLC, or monotone counter). Lattice
+/// ordering is by timestamp: on join, the value with the **larger
+/// timestamp** wins, and ties are broken deterministically in favor
+/// of the left-hand operand.
+///
+/// This makes `LWW<T>` a simple register-style lattice that can be
+/// used as the payload in higher-level CRDTs or in `Option<LWW<T>>`
+/// when a true bottom element is needed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LWW<T> {
+    pub value: T,
+    pub ts: u64, // logical timestamp
+}
+
+impl<T: Clone> JoinSemilattice for LWW<T> {
+    fn join(&self, other: &Self) -> Self {
+        if other.ts > self.ts {
+            other.clone()
+        } else {
+            self.clone()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -659,6 +847,65 @@ mod tests {
         assert!(a.contains(&"c"));
 
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn twopset_local_add_and_remove() {
+        let mut s = TwoPSet::new();
+
+        s.add("a");
+        s.add("b");
+        assert!(s.contains(&"a"));
+        assert!(s.contains(&"b"));
+
+        s.remove("a");
+        assert!(!s.contains(&"a"));
+        assert!(s.contains(&"b"));
+    }
+
+    #[test]
+    fn twopset_cannot_readd_after_remove() {
+        let mut s = TwoPSet::new();
+
+        s.add("x");
+        assert!(s.contains(&"x"));
+
+        s.remove("x");
+        assert!(!s.contains(&"x"));
+
+        // This add has no effect - x is permanently removed
+        s.add("x");
+        assert!(!s.contains(&"x"));
+    }
+
+    #[test]
+    fn twopset_merge_converges() {
+        let mut a = TwoPSet::new();
+        let mut b = TwoPSet::new();
+
+        // A adds "x" and "y"
+        a.add("x");
+        a.add("y");
+
+        // B adds "y" and "z", then removes "y"
+        b.add("y");
+        b.add("z");
+        b.remove("y");
+
+        let a_state = a.state().clone();
+        let b_state = b.state().clone();
+
+        // Merge in both directions
+        a.merge(&b_state);
+        b.merge(&a_state);
+
+        // Both should converge to: {x, z}
+        // (y was removed by B, so it's gone even though A added it)
+        assert!(a.contains(&"x"));
+        assert!(!a.contains(&"y"));
+        assert!(a.contains(&"z"));
+
+        assert_eq!(a.elements(), b.elements());
     }
 
     #[test]
@@ -784,5 +1031,37 @@ mod tests {
         // Whatever the winning policy for this pattern, both replicas
         // must converge to the same logical view.
         assert_eq!(a.elements(), b.elements());
+    }
+
+    #[test]
+    fn lww_join_picks_newer_timestamp() {
+        let old = LWW {
+            value: "old",
+            ts: 5,
+        };
+        let new = LWW {
+            value: "new",
+            ts: 10,
+        };
+
+        let joined = old.join(&new);
+
+        assert_eq!(joined.value, "new");
+        assert_eq!(joined.ts, 10);
+    }
+
+    #[test]
+    fn lww_join_is_commutative_and_idempotent() {
+        let a = LWW { value: "a", ts: 7 };
+        let b = LWW { value: "b", ts: 3 };
+
+        // Commutative: a ⊔ b == b ⊔ a
+        let ab = a.join(&b);
+        let ba = b.join(&a);
+        assert_eq!(ab, ba);
+
+        // Idempotent: a ⊔ a == a
+        let aa = a.join(&a);
+        assert_eq!(aa, a);
     }
 }
