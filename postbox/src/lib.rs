@@ -6,9 +6,12 @@
 //!   **join-semilattices**
 //! - [`crdt`]: classic **state-based CRDTs** built on those lattices:
 //!   - [`crdt::GCounter`]: grow-only counter
-//!   - [`crdt::GSet`]: grow-only set
 //!   - [`crdt::PNCounter`]: increment/decrement counter built from
 //!     two GCounters
+//!   - [`crdt::GSet`]: grow-only set
+//!   - [`crdt::TwoPSet`]: two-phase set (add + remove, no re-add)
+//!   - [`crdt::ORSet`]: observed-remove set (supports re-add)
+//!   - [`crdt::LWW`]: last-writer-wins register
 //! - [`lvar`] *(feature = "async")*: an **LVar-style** cell whose
 //!   state only grows by lattice join
 //! - [`join_stream_ext`] *(feature = "async")*: stream adapters to
