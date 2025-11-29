@@ -95,5 +95,5 @@ pub use join_semilattice::JoinSemilattice;
 
 // Re-export derive macros when the feature is enabled
 #[cfg(feature = "derive")]
-pub use postbox_derive::BoundedJoinSemilattice as BoundedJoinSemilatticeDerive;
-pub use postbox_derive::JoinSemilattice as JoinSemilatticeDerive;
+pub use postbox_derive::BoundedJoinSemilattice;
+pub use postbox_derive::JoinSemilattice;

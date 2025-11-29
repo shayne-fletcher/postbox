@@ -383,12 +383,14 @@ mod tests {
     #[cfg(all(test, feature = "derive"))]
     mod derive_tests {
         use super::*;
-        use crate::join_semilattice::{BoundedJoinSemilattice, JoinSemilattice};
-        use crate::{BoundedJoinSemilatticeDerive, JoinSemilatticeDerive};
 
-        #[derive(
-            Debug, Clone, PartialEq, Eq, JoinSemilatticeDerive, BoundedJoinSemilatticeDerive,
-        )]
+        use crate::join_semilattice::BoundedJoinSemilattice;
+        use crate::join_semilattice::JoinSemilattice;
+
+        use postbox_derive::BoundedJoinSemilattice;
+        use postbox_derive::JoinSemilattice;
+
+        #[derive(Debug, Clone, PartialEq, Eq, JoinSemilattice, BoundedJoinSemilattice)]
         struct Foo {
             // Both of these already have JoinSemilattice /
             // BoundedJoinSemilattice impls.
