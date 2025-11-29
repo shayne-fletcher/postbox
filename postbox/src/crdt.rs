@@ -1,3 +1,26 @@
+//! Basic **state-based CRDTs** built on lattice primitives.
+//!
+//! This module provides a small collection of classic convergent
+//! replicated data types implemented in terms of [`JoinSemilattice`]
+//! / [`BoundedJoinSemilattice`] from [`crate::join_semilattice`]. All
+//! of these are *state-based* CRDTs: replicas exchange full lattice
+//! states and merge them with `join`, guaranteeing convergence under
+//! arbitrary message reordering and duplication.
+//!
+//! Included types:
+//!
+//! - [`GCounterState`] / [`GCounter`]:
+//!   grow-only counter where each replica maintains a per-replica
+//!   component; merge is pointwise `max`, and the logical value is
+//!   the sum of all components.
+//!
+//! - [`PNCounterState`] / [`PNCounter`]:
+//!   a **PN-Counter** built from two GCounters (`p` for increments,
+//!   `n` for decrements), with logical value `sum(p) - sum(n)`.
+//!
+//! - [`GSet`]:
+//!   grow-only set where updates only **add** elements and merges use
+//!   set union.
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;

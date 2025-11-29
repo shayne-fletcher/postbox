@@ -1,9 +1,33 @@
 #![cfg(feature = "async")]
+//! Async **LVar-style** monotone cell built on join-semilattices.
+//!
+//! This module exposes [`LVar<L>`], a cell whose state lives in a
+//! [`JoinSemilattice`] and is updated only via the lattice `join`.
+//! Once information is added, it is never removed:
+//!
+//! - Writes go through [`LVar::put_join`], which updates the state as
+//!   `state := state ∨ delta` and notifies any waiters if the value
+//!   changed.
+//! - Readers can:
+//!   - use [`LVar::get`] for a synchronous snapshot, or
+//!   - `await` monotone conditions with:
+//!     - [`LVar::await_at_least`] for `target ≤ current`
+//!     - [`LVar::await_monotone`] for an arbitrary monotone predicate
+//!       `p` (if `p(x)` and `x ≤ y`, then `p(y)`).
+//!
+//! Internally, `LVar` combines a `Mutex<L>` for the authoritative
+//! state with a `tokio::sync::watch::Sender<L>` to broadcast updates
+//! to asynchronous subscribers. All evolution of the state is
+//! monotone in the induced lattice order, which makes these cells a
+//! good building block for async dataflow and CRDT-style
+//! convergence.`
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::sync::watch;
 
-use crate::join_semilattice::{BoundedJoinSemilattice, JoinSemilattice};
+use crate::join_semilattice::BoundedJoinSemilattice;
+use crate::join_semilattice::JoinSemilattice;
 
 /// A monotone cell (LVar): state only increases via lattice `join`.
 pub struct LVar<L>
