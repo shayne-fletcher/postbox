@@ -83,7 +83,7 @@ jobs:
         cache-all-crates: true
     - name: build docs
       working-directory: '.'
-      run: cargo doc --no-deps --all-features
+      run: cargo doc --workspace --no-deps --all-features
     - name: add .nojekyll file
       working-directory: '.'
       run: touch target/doc/.nojekyll
