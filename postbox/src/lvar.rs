@@ -1,18 +1,18 @@
 #![cfg(feature = "async")]
 //! Async **LVar-style** monotone cell built on join-semilattices.
 //!
-//! This module exposes [`LVar<L>`], a cell whose state lives in a
+//! This module exposes [`crate::lvar::LVar`], a cell whose state lives in a
 //! [`JoinSemilattice`] and is updated only via the lattice `join`.
 //! Once information is added, it is never removed:
 //!
-//! - Writes go through [`LVar::put_join`], which updates the state as
+//! - Writes go through [`crate::lvar::LVar::put_join`], which updates the state as
 //!   `state := state ∨ delta` and notifies any waiters if the value
 //!   changed.
 //! - Readers can:
-//!   - use [`LVar::get`] for a synchronous snapshot, or
+//!   - use [`crate::lvar::LVar::get`] for a synchronous snapshot, or
 //!   - `await` monotone conditions with:
-//!     - [`LVar::await_at_least`] for `target ≤ current`
-//!     - [`LVar::await_monotone`] for an arbitrary monotone predicate
+//!     - [`crate::lvar::LVar::await_at_least`] for `target ≤ current`
+//!     - [`crate::lvar::LVar::await_monotone`] for an arbitrary monotone predicate
 //!       `p` (if `p(x)` and `x ≤ y`, then `p(y)`).
 //!
 //! Internally, `LVar` combines a `Mutex<L>` for the authoritative

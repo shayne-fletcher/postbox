@@ -97,7 +97,6 @@ async fn lvar_demo() {
     use std::time::Duration;
     use tokio::time::sleep;
 
-    use postbox::join_semilattice::BoundedJoinSemilattice;
     use postbox::lvar::LVar;
 
     println!("=== LVar demo (requires `async` feature) ===");

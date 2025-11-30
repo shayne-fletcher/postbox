@@ -14,19 +14,19 @@
 //!
 //! # Provided lattices
 //!
-//! - [`Max<T>`] / [`Min<T>`]:
+//! - [`crate::join_semilattice::Max`] / [`crate::join_semilattice::Min`]:
 //!   wrapper types where `join` is `max` / `min` on the inner value.
-//! - [`HashSet<T>`], [`BTreeSet<T>`]:
+//! - [`std::collections::HashSet`], [`std::collections::BTreeSet`]:
 //!   sets with `join = union` and bottom = empty set.
-//! - [`LatticeMap<K, V>`]:
+//! - [`crate::join_semilattice::LatticeMap`]:
 //!   pointwise map lattice over `HashMap<K, V>` where `V` is a
 //!   lattice; `join` unions keys and joins overlapping values.
 //! - Tuples up to arity 4:
 //!   product lattices with componentwise `join` and bottom.
-//! - [`Option<L>`]:
+//! - [`Option`]:
 //!   lifted lattice with `None` as bottom and `Some(a) ⊔ Some(b)`
 //!   delegating to `L`.
-//! - [`JoinOf<L>`] / [`NonEmptyJoinOf<L>`]:
+//! - [`crate::join_semilattice::JoinOf`] / [`crate::join_semilattice::NonEmptyJoinOf`]:
 //!   helpers for collecting iterators of lattice values by joining
 //!   them (treating empty as ⊥ or returning `None`).
 //!
@@ -198,7 +198,7 @@ impl<T: Ord + Clone> BoundedJoinSemilattice for BTreeSet<T> {
 /// Keys are optional; values form a join-semilattice. The induced
 /// lattice order is:
 ///
-///   m1 ≤ m2  iff  for all k, m1[k] ≤ m2[k]
+///   m1 ≤ m2  iff  for all k, m1\[k\] ≤ m2\[k\]
 ///
 /// Operationally, `join` is:
 /// - keys: union of the key sets
@@ -363,6 +363,37 @@ impl_product_lattice!(A:0, B:1, C:2, D:3);
 
 // JoinOf<L> (bounded)
 
+/// A wrapper type for collecting values using their lattice `join`.
+///
+/// `JoinOf<L>` turns any iterator of `L` into a single value by
+/// repeatedly applying `join`. It is especially useful when working
+/// with CRDT state that naturally accumulates via joins.
+///
+/// This type implements [`FromIterator`] for both owned `L` and
+/// references `&L`, allowing you to write:
+///
+/// ```
+/// use postbox::join_semilattice::{JoinOf, JoinSemilattice};
+/// use std::collections::HashSet;
+///
+/// let a: HashSet<_> = [1, 2].into_iter().collect();
+/// let b: HashSet<_> = [2, 3].into_iter().collect();
+///
+/// // Join = union, so collecting produces the union.
+/// let JoinOf(u) = [a, b].into_iter().collect::<JoinOf<_>>();
+/// assert_eq!(u, [1, 2, 3].into_iter().collect());
+/// ```
+///
+/// # Empty iterators
+///
+/// If the iterator is empty, the result is the **bottom** element of
+/// the lattice (`L::bottom()`), as required by
+/// [`BoundedJoinSemilattice`]. This makes `JoinOf` appropriate for
+/// "total" reductions where an empty input still yields a
+/// well-defined lattice value.
+///
+/// See also [`NonEmptyJoinOf`], which provides a fallible variant
+/// that returns `None` on empty iterators.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JoinOf<L>(pub L);
 
@@ -405,6 +436,33 @@ where
 
 // NonEmptyJoinOf<L>
 
+/// A wrapper for non-empty joins over a `JoinSemilattice`.
+///
+/// `NonEmptyJoinOf<L>` represents the join of a **non-empty**
+/// collection of lattice values. Unlike [`JoinOf`], it does *not*
+/// assume the existence of a bottom element and therefore does not
+/// define behavior for empty iterators by itself.
+///
+/// Instead, it provides the helper constructors
+/// [`NonEmptyJoinOf::from_iter_nonempty`] and
+/// [`NonEmptyJoinOf::from_iter_nonempty_ref`], which return `None`
+/// when given an empty iterator:
+///
+/// ```
+/// use postbox::join_semilattice::{NonEmptyJoinOf, JoinSemilattice};
+/// use std::collections::HashSet;
+///
+/// let a: HashSet<_> = [1, 2].into_iter().collect();
+/// let b: HashSet<_> = [2, 3].into_iter().collect();
+///
+/// let ne = NonEmptyJoinOf::from_iter_nonempty([a, b]).unwrap();
+/// // `ne` holds the union of both sets.
+/// ```
+///
+/// This is useful when you want the type system (via `Option`) to
+/// distinguish between "no values" and "the join of at least one
+/// value", without requiring a [`BoundedJoinSemilattice`] bottom
+/// element.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NonEmptyJoinOf<L>(pub L);
 

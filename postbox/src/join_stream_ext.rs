@@ -5,8 +5,8 @@
 //! `futures::Stream`, allowing you to fold a stream using your type's
 //! `join` operation.
 //!
-//! For infinite streams, consider piping deltas into a
-//! [`JoinCell`](crate::join_cell::JoinCell) instead.
+//! For infinite streams, consider piping deltas into an
+//! [`LVar`](crate::lvar::LVar) instead.
 
 use async_trait::async_trait;
 

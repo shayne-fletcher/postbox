@@ -9,36 +9,36 @@
 //!
 //! Included types:
 //!
-//! - [`GCounterState`] / [`GCounter`]:
+//! - [`crate::crdt::GCounterState`] / [`crate::crdt::GCounter`]:
 //!   grow-only counter where each replica maintains a per-replica
 //!   component; merge is pointwise `max`, and the logical value is
 //!   the sum of all components.
 //!
-//! - [`PNCounterState`] / [`PNCounter`]:
+//! - [`crate::crdt::PNCounterState`] / [`crate::crdt::PNCounter`]:
 //!   a **PN-Counter** built from two GCounters (`p` for increments,
 //!   `n` for decrements), with logical value `sum(p) - sum(n)`.
 //!
-//! - [`GSet`]:
+//! - [`crate::crdt::GSet`]:
 //!   grow-only set where updates only **add** elements and merges use
 //!   set union.
 //!
-//! - [`TwoPSetState`] / [`TwoPSet`]:
+//! - [`crate::crdt::TwoPSetState`] / [`crate::crdt::TwoPSet`]:
 //!   a **Two-Phase Set** that supports both adds and removes, but
 //!   once an element is removed, it cannot be re-added (simpler than
 //!   OR-Set).
 //!
-//! - [`ORSetState`] / [`ORSet`]:
+//! - [`crate::crdt::ORSetState`] / [`crate::crdt::ORSet`]:
 //!   an add-wins **Observed-Remove Set** that supports both inserts
 //!   and removes by tagging adds and recording tombstones for
 //!   observed tags; merges are just lattice joins on the underlying
 //!   add/remove sets.
 //!
-//! - [`LWW<T>`]:
+//! - [`crate::crdt::LWW`]:
 //!   a **Last-Writer-Wins register** lattice storing `(value, ts)`
 //!   and resolving conflicts by picking the value with the larger
 //!   timestamp.
 //!
-//! - [`MVRegister<T, Ts, Id>`]:
+//! - [`crate::crdt::MVRegister`]:
 //!   a **Multi-Value Register** that keeps all values written at the
 //!   maximum timestamp, handling concurrent writes by keeping all of them.
 use std::collections::HashMap;
