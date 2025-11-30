@@ -836,9 +836,9 @@ mod tests {
     use std::collections::HashSet;
 
     // Helper to build a set quickly.
-    fn set<T: Eq + std::hash::Hash>(xs: &[T]) -> HashSet<T>
+    fn set<T>(xs: &[T]) -> HashSet<T>
     where
-        T: Clone,
+        T: Eq + std::hash::Hash + Clone,
     {
         xs.iter().cloned().collect()
     }

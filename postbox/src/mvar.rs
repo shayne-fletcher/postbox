@@ -1,5 +1,3 @@
-#![cfg(feature = "async")]
-
 //! MVar-style for Rust (tokio)
 //! ---------------------------
 //! A single-slot, either-empty-or-full container with blocking `put`

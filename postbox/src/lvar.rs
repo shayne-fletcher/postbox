@@ -1,4 +1,3 @@
-#![cfg(feature = "async")]
 //! Async **LVar-style** monotone cell built on join-semilattices.
 //!
 //! This module exposes [`crate::lvar::LVar`], a cell whose state lives in a

@@ -1,4 +1,3 @@
-#![cfg(feature = "async")]
 //! Stream extensions for join-semilattices (feature = `"async"`).
 //!
 //! Adds `.join_all_lattice()` and `.join_all_from_bottom()` to any
