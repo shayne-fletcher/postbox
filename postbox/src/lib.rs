@@ -1,6 +1,8 @@
 #![deny(missing_docs)]
 //! # postbox — lattice basics + async join cells
 //!
+//! **Part of the [postbox workspace](../index.html)**
+//!
 //! Core pieces:
 //!
 //! - [`join_semilattice`]: traits and helpers for

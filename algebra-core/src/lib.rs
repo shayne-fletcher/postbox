@@ -1,6 +1,8 @@
 #![deny(missing_docs)]
 //! # algebra-core — Core algebraic abstractions
 //!
+//! **Part of the [postbox workspace](../index.html)**
+//!
 //! This crate provides fundamental algebraic structures as Rust
 //! traits:
 //!

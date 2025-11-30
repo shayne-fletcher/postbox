@@ -1,6 +1,8 @@
 #![deny(missing_docs)]
 //! # algebra-core-derive — procedural macros for algebraic traits
 //!
+//! **Part of the [postbox workspace](../index.html)**
+//!
 //! This crate provides **derive macros** for the `algebra-core` library,
 //! enabling boilerplate-free implementations of algebraic traits for
 //! product types (structs with named or unnamed fields).
