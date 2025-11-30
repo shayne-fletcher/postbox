@@ -1,17 +1,21 @@
-//! Propagator networks for monotonic computation with algebraic cells.
+//! Propagator networks for accumulative computation with algebraic cells.
 //!
 //! A **propagator** is a computational model where:
 //!
-//! - **Cells** hold values from a semigroup that can only grow
-//!   (monotonic updates)
+//! - **Cells** hold semigroup values that accumulate via `combine`
+//!   (one-way updates: never replace, only merge)
 //! - **Propagators** are functions that read from cells and write to
 //!   cells
 //! - When a cell's value changes, propagators that depend on it are
 //!   scheduled
 //! - The system runs until reaching a fixed point (no more changes)
 //!
+//! For lattices (ordered semigroups), accumulation means **monotonic growth**.
+//! For general semigroups, it means **one-way combination** (e.g., string
+//! concatenation, gradient accumulation).
+//!
 //! This builds on the [`lvar`](crate::lvar) foundation, extending
-//! individual monotonic cells to networks of interconnected
+//! individual accumulative cells to networks of interconnected
 //! computations.
 //!
 //! ## Conceptual model
@@ -146,17 +150,20 @@ impl<S> CellId<S> {
 
 /// A cell holding a semigroup value of type `S`.
 ///
-/// Cells store monotonically growing values. Updates merge via
-/// the semigroup's `combine` operation, ensuring the value only
-/// increases. When a cell's value changes, dependent propagators are
-/// notified (dependency tracking to be added).
+/// Cells store values that accumulate via the semigroup's `combine` operation.
+/// Updates never replace - they merge with existing values via `old.combine(new)`.
+/// When a cell's value changes, dependent propagators are notified
+/// (dependency tracking to be added).
 ///
-/// # Monotonicity
+/// # Accumulation invariant
 ///
-/// The key invariant: values can only grow. If you merge a value `v`
+/// The key invariant: values accumulate, never replace. If you merge a value `v`
 /// into a cell holding `current`, the new value is `current.combine(v)`.
 /// Since combine is associative, the order of merges doesn't affect
 /// convergence - the cell will reach the same final value regardless.
+///
+/// For lattices, this is **monotonic growth** (values increase in partial order).
+/// For general semigroups, this is **one-way accumulation** (e.g., concatenation).
 ///
 /// # Example
 ///
@@ -398,19 +405,25 @@ impl Default for Network {
     }
 }
 
-/// A propagator that performs monotonic computation on a network.
+/// A propagator that performs accumulative computation on a network.
 ///
 /// Propagators are functions that read values from cells and write values to cells.
 /// When activated, a propagator reads its input cells, performs some computation,
-/// and merges the result into output cells. Since all updates are monotonic (via
-/// semigroup combine), the order of propagator activations doesn't affect the final result.
+/// and merges the result into output cells. Since all updates accumulate via
+/// semigroup combine (never replace), the order of propagator activations doesn't
+/// affect the final result.
 ///
-/// # Monotonicity
+/// # Compatibility requirement
 ///
-/// Propagators must be **monotonic**: if inputs grow, outputs can only grow (never shrink).
-/// For lattices, this means respecting the partial order. For general semigroups, this means
-/// the computation is compatible with the associative structure. This ensures that the network
-/// converges to a unique fixed point regardless of execution order.
+/// Propagators must be **compatible with accumulation**: if inputs accumulate more
+/// information, outputs should accumulate compatible information.
+///
+/// - For lattices: this means **monotonic** functions (inputs grow ⇒ outputs grow)
+/// - For general semigroups: this means **accumulation-preserving** functions
+///   (e.g., gradient propagation preserves addition structure)
+///
+/// This ensures that the network converges to a unique fixed point regardless of
+/// execution order.
 ///
 /// # Example
 ///
