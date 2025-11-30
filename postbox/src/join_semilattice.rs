@@ -116,6 +116,17 @@ pub trait BoundedJoinSemilattice: JoinSemilattice {
 
 // join = max
 
+/// Newtype wrapper turning an `Ord` type into a **max-semilattice**.
+///
+/// `Max<T>` interprets `join` as taking the maximum of two values:
+///
+/// - `Max(a).join(&Max(b)) == Max(max(a, b))`
+///
+/// This is handy when you want to treat a plain ordered type (like
+/// `u64` or `Instant`) as a lattice element, e.g. for timestamps,
+/// counters, or high-water marks.
+///
+/// When `T: Bounded`, the bottom element is `Max(T::min_value())`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Max<T>(pub T);
 
@@ -137,6 +148,16 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> BoundedJoinSemilattice for 
 
 // join = min
 
+/// Newtype wrapper turning an `Ord` type into a **min-semilattice**.
+///
+/// `Min<T>` interprets `join` as taking the minimum of two values:
+///
+/// - `Min(a).join(&Min(b)) == Min(min(a, b))`
+///
+/// This is useful when you want the lattice order to represent "no
+/// larger than" (e.g. deadlines, lower-bounds, or minima over a set).
+///
+/// When `T: Bounded`, the bottom element is `Min(T::max_value())`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Min<T>(pub T);
 
