@@ -27,7 +27,7 @@ jobs:
       run: cargo fmt --all --check
     - name: clippy check
       working-directory: '.'
-      run: cargo clippy # -- -D warnings
+      run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::new_without_default
     - name: build
       working-directory: '.'
       run: cargo build
@@ -55,6 +55,36 @@ jobs:
     - name: run tests
       working-directory: '.'
       run: cargo test
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - uses: SebRollen/toml-action@v1.0.2
+      id: read_rust_toolchain
+      with:
+        file: rust-toolchain
+        field: toolchain.channel
+    - uses: dtolnay/rust-toolchain@v1
+      with:
+        toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
+        components: llvm-tools-preview
+    - uses: Swatinem/rust-cache@v2
+      id: coverage-cache
+      with:
+        shared-key: shared-build-cache
+        cache-targets: true
+        cache-all-crates: true
+    - name: Install cargo-llvm-cov
+      run: cargo install cargo-llvm-cov
+    - name: Generate coverage
+      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+    - name: Upload to codecov.io
+      uses: codecov/codecov-action@v4
+      with:
+        files: lcov.info
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
   publish-docs:
     runs-on: ubuntu-latest
     permissions:
