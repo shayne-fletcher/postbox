@@ -164,7 +164,7 @@ jobs:
           <div class="header-section">
             <img src="ottie.jpg" alt="Ottie the Otter - postbox mascot" class="mascot">
             <div class="header-text">
-              <h1>postbox workspace</h1>
+              <h1>📬 postbox workspace</h1>
               <p>Lattice-based state, LVars, MVars, and CRDT building blocks for async Rust.</p>
               <a href="https://github.com/shayne-fletcher/postbox" class="github-link">
                 <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">

@@ -1,4 +1,4 @@
-# postbox
+# 📬 postbox
 
 [![Build and test](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml)
 [![codecov](https://codecov.io/gh/shayne-fletcher/postbox/branch/main/graph/badge.svg)](https://codecov.io/gh/shayne-fletcher/postbox)
@@ -23,8 +23,8 @@ This workspace contains:
 - `LatticeMap<K, V>`: pointwise map lattice (building block for CRDT states)
 
 **Async cells:**
-- `LVar<L>`: monotone, join-only async cell
-- `MVar<T>`: classic single-slot async cell (not monotone)
+- 📬 `LVar<L>`: monotone, join-only async cell
+- 📬 `MVar<T>`: classic single-slot async cell (not monotone)
 
 **State-based CRDTs:**
 - `GCounter<Id>`: grow-only CRDT counter
