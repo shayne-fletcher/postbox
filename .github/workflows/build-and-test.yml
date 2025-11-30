@@ -117,6 +117,9 @@ jobs:
     - name: add .nojekyll file
       working-directory: '.'
       run: touch target/doc/.nojekyll
+    - name: copy mascot image
+      working-directory: '.'
+      run: cp ottie.jpg target/doc/
     - name: create workspace index
       working-directory: '.'
       run: |
@@ -132,16 +135,28 @@ jobs:
           <style>
             body { padding: 2rem; max-width: 900px; margin: 0 auto; }
             h1 { border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; }
+            .header-section { display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem; }
+            .mascot { max-width: 200px; height: auto; border-radius: 8px; }
+            .header-text { flex: 1; }
             .crate-list { list-style: none; padding: 0; }
             .crate-list li { margin: 1.5rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; }
             .crate-list h2 { margin-top: 0; }
             .crate-list a { text-decoration: none; color: #0969da; }
             .crate-list a:hover { text-decoration: underline; }
+            @media (max-width: 600px) {
+              .header-section { flex-direction: column; }
+              .mascot { max-width: 150px; }
+            }
           </style>
         </head>
         <body>
-          <h1>postbox workspace</h1>
-          <p>Lattice-based state, LVars, MVars, and CRDT building blocks for async Rust.</p>
+          <div class="header-section">
+            <img src="ottie.jpg" alt="Ottie the Otter - postbox mascot" class="mascot">
+            <div class="header-text">
+              <h1>postbox workspace</h1>
+              <p>Lattice-based state, LVars, MVars, and CRDT building blocks for async Rust.</p>
+            </div>
+          </div>
 
           <h2>Crates</h2>
           <ul class="crate-list">
