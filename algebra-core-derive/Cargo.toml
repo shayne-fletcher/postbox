@@ -3,7 +3,7 @@ name = "algebra-core-derive"
 version = "0.1.0"
 edition = "2021"
 description = "Derive macros for algebra-core traits"
-license = "MIT OR Apache-2.0"
+license = "BSD-3-Clause"
 repository = "https://github.com/shayne-fletcher/postbox"
 
 [lib]
