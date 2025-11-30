@@ -21,12 +21,40 @@ Add `postbox` to your `Cargo.toml`:
 ```toml
 [dependencies]
 postbox = "0.1"
-
-# To use derive macros:
-postbox = { version = "0.1", features = ["derive"] }
 ```
 
-The `postbox` crate re-exports all traits from `algebra-core`, so you can use everything through `postbox`. If you only need the algebraic abstractions without async cells or CRDTs, you can depend on `algebra-core` directly.
+By default, all features are enabled. The `postbox` crate re-exports all traits from `algebra-core`, so you can use everything through `postbox`. If you only need the algebraic abstractions without async cells or CRDTs, you can depend on `algebra-core` directly.
+
+## Cargo Features
+
+The `postbox` crate has several optional features *(all enabled by default)*:
+
+- **`async`** *(default)*: Enables async/await support
+  - `LVar`: monotone lattice variables with async waiting
+  - `MVar`: classic single-slot async cells
+  - Stream extensions for folding with lattice join
+  - Requires `tokio` and `futures` dependencies
+
+- **`derive`** *(default)*: Provides derive macros for automatic trait implementations
+  - `#[derive(JoinSemilattice)]`, `#[derive(BoundedJoinSemilattice)]`
+  - Also supports: `Semigroup`, `Monoid`, `CommutativeMonoid`, `Group`, `AbelianGroup`
+  - Works for both named structs and tuple structs
+
+- **`bitflags`** *(default)*: Adds support for using `BitOr`/`BitAnd` with types from the `bitflags` crate
+
+To use only core lattice types without async or derives:
+
+```toml
+[dependencies]
+postbox = { version = "0.1", default-features = false }
+```
+
+Or selectively enable features:
+
+```toml
+[dependencies]
+postbox = { version = "0.1", default-features = false, features = ["derive"] }
+```
 
 ## Features
 
