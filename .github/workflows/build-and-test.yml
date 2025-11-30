@@ -116,8 +116,12 @@ jobs:
           <h2>Crates</h2>
           <ul class="crate-list">
             <li>
+              <h2><a href="algebra_core/index.html">algebra-core</a></h2>
+              <p>Core algebraic abstractions: Semigroup, Monoid, Group, and Semilattice traits with implementations for std types.</p>
+            </li>
+            <li>
               <h2><a href="postbox/index.html">postbox</a></h2>
-              <p>Core library: join-semilattice traits, LVars, MVars, CRDTs, and stream extensions.</p>
+              <p>Lattice-based state library: concrete lattice types, LVars, MVars, CRDTs, and stream extensions built on algebra-core.</p>
             </li>
             <li>
               <h2><a href="postbox_derive/index.html">postbox_derive</a></h2>

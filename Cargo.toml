@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "algebra-core",
     "postbox",
     "postbox_derive",
 ]

@@ -1268,5 +1268,4 @@ mod tests {
         assert_eq!(x.combine(&y), y.combine(&x));
         assert_eq!(use_commutative_monoid(&x, &y), Max(5));
     }
-
 }

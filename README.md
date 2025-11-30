@@ -2,7 +2,12 @@
 
 [![Build and test](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml)
 
-Lattice-based state + async cells for Rust:
+Lattice-based state + async cells for Rust.
+
+This workspace contains:
+- **`algebra-core`**: Core algebraic abstractions (Semigroup, Monoid, Group, Semilattice)
+- **`postbox`**: Lattice-based state, LVars, MVars, and CRDTs built on algebra-core
+- **`postbox_derive`**: Derive macros for lattice traits
 
 **Core traits & helpers:**
 - `JoinSemilattice` and `BoundedJoinSemilattice` traits
