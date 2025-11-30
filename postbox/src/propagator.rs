@@ -1,10 +1,9 @@
-//! Propagator networks for monotonic computation with lattice-valued
-//! cells.
+//! Propagator networks for monotonic computation with algebraic cells.
 //!
 //! A **propagator** is a computational model where:
-
-//! - **Cells** hold lattice values that can only grow (monotonic
-//!    updates)
+//!
+//! - **Cells** hold values from a semigroup that can only grow
+//!   (monotonic updates)
 //! - **Propagators** are functions that read from cells and write to
 //!   cells
 //! - When a cell's value changes, propagators that depend on it are
@@ -29,7 +28,7 @@
 //!
 //! When cells A or B change, the propagator runs and may update cell
 //! C. Multiple propagators can write to the same cell (values merge
-//! via join).
+//! via the semigroup operation).
 //!
 //! ## Status
 //!
@@ -40,9 +39,9 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crate::join_semilattice::JoinSemilattice;
+use algebra_core::Semigroup;
 
-/// A typed identifier for a cell holding values of lattice type `L`.
+/// A typed identifier for a cell holding values of type `S`.
 ///
 /// The type parameter ensures compile-time safety: you cannot
 /// accidentally use a `CellId<i32>` where a `CellId<String>` is
@@ -52,29 +51,30 @@ use crate::join_semilattice::JoinSemilattice;
 ///
 /// # Type Erasure Pattern
 ///
-/// Propagator networks need to store cells with heterogeneous lattice
-/// types (e.g., `Cell<i32>`, `Cell<HashSet<String>>`, etc.) in the
+/// Propagator networks need to store cells with heterogeneous types
+/// (e.g., `Cell<Max<i32>>`, `Cell<HashSet<String>>`, etc.) in the
 /// same container.
 /// This is accomplished through a two-layer type system:
 ///
 /// - **Storage layer (runtime)**: Cells stored as `Box<dyn Any>`
 ///   (type-erased)
-/// - **API layer (compile-time)**: `CellId<L>` carries the type
+/// - **API layer (compile-time)**: `CellId<S>` carries the type
 ///   information
 ///
-/// When you access a cell via its `CellId<L>`, the network can safely
+/// When you access a cell via its `CellId<S>`, the network can safely
 /// downcast the type-erased storage back to the concrete type
-/// `Cell<L>`.
+/// `Cell<S>`.
 ///
 /// # Example
 ///
 /// ```rust
 /// use postbox::propagator::CellId;
+/// use postbox::join_semilattice::Max;
 /// use std::collections::HashSet;
 ///
-/// // Each cell ID carries its lattice type
-/// let id1: CellId<i32> = CellId::new(0);
-/// let id2: CellId<i32> = CellId::new(1);
+/// // Each cell ID carries its type
+/// let id1: CellId<Max<i32>> = CellId::new(0);
+/// let id2: CellId<Max<i32>> = CellId::new(1);
 /// let id3: CellId<HashSet<String>> = CellId::new(0);
 ///
 /// // Can compare IDs of the same type
@@ -82,39 +82,40 @@ use crate::join_semilattice::JoinSemilattice;
 /// assert_eq!(id1.raw(), 0);
 /// assert_eq!(id2.raw(), 1);
 ///
-/// // But CellId<i32> and CellId<HashSet<String>> are different types
+/// // But CellId<Max<i32>> and CellId<HashSet<String>> are different types
 /// // (this would be a compile error):
 /// // assert_ne!(id1, id3);  // ← error: mismatched types
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct CellId<L> {
+pub struct CellId<S> {
     id: usize,
-    _phantom: PhantomData<L>,
+    _phantom: PhantomData<S>,
 }
 
-// Manually implement Clone and Copy. CellId is Copy regardless of whether L
+// Manually implement Clone and Copy. CellId is Copy regardless of whether S
 // is Copy, since it only contains a usize and PhantomData (both always Copy).
-// The derived implementations would incorrectly require L: Clone/Copy.
-impl<L> Clone for CellId<L> {
+// The derived implementations would incorrectly require S: Clone/Copy.
+impl<S> Clone for CellId<S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<L> Copy for CellId<L> {}
+impl<S> Copy for CellId<S> {}
 
-impl<L> CellId<L> {
+impl<S> CellId<S> {
     /// Create a new cell ID from a raw integer.
     ///
     /// This is typically called internally by the network when creating cells.
-    /// The type parameter `L` captures what lattice type this cell holds.
+    /// The type parameter `S` captures what semigroup type this cell holds.
     ///
     /// # Example
     ///
     /// ```rust
     /// use postbox::propagator::CellId;
+    /// use postbox::join_semilattice::Max;
     ///
-    /// let id: CellId<i32> = CellId::new(42);
+    /// let id: CellId<Max<i32>> = CellId::new(42);
     /// assert_eq!(id.raw(), 42);
     /// ```
     pub fn new(id: usize) -> Self {
@@ -143,20 +144,19 @@ impl<L> CellId<L> {
     }
 }
 
-/// A cell holding a lattice value of type `L`.
+/// A cell holding a semigroup value of type `S`.
 ///
 /// Cells store monotonically growing values. Updates merge via
-/// lattice join, ensuring the value only increases in the lattice
-/// order. When a cell's value changes, dependent propagators are
+/// the semigroup's `combine` operation, ensuring the value only
+/// increases. When a cell's value changes, dependent propagators are
 /// notified (dependency tracking to be added).
 ///
 /// # Monotonicity
 ///
 /// The key invariant: values can only grow. If you merge a value `v`
-/// into a cell holding `current`, the new value is `current.join(v)`.
-/// Since join is idempotent and associative, the order of merges
-/// doesn't matter - the cell will converge to the same final value
-/// regardless.
+/// into a cell holding `current`, the new value is `current.combine(v)`.
+/// Since combine is associative, the order of merges doesn't affect
+/// convergence - the cell will reach the same final value regardless.
 ///
 /// # Example
 ///
@@ -166,7 +166,7 @@ impl<L> CellId<L> {
 ///
 /// let mut cell = Cell::new(HashSet::<i32>::new());
 ///
-/// // Merging adds elements (HashSet join = union)
+/// // Merging adds elements (HashSet combine = union)
 /// assert!(cell.merge(HashSet::from([1, 2])));  // changed
 /// assert_eq!(cell.value(), &HashSet::from([1, 2]));
 ///
@@ -177,12 +177,12 @@ impl<L> CellId<L> {
 /// assert!(!cell.merge(HashSet::from([1])));    // unchanged
 /// assert_eq!(cell.value(), &HashSet::from([1, 2, 3]));
 /// ```
-pub struct Cell<L: JoinSemilattice> {
-    value: L,
+pub struct Cell<S: Semigroup> {
+    value: S,
     // Future: dependency tracking (Vec<PropagatorId>)
 }
 
-impl<L: JoinSemilattice> Cell<L> {
+impl<S: Semigroup> Cell<S> {
     /// Create a new cell with an initial value.
     ///
     /// # Example
@@ -194,7 +194,7 @@ impl<L: JoinSemilattice> Cell<L> {
     /// let cell = Cell::new(Max(42));
     /// assert_eq!(cell.value(), &Max(42));
     /// ```
-    pub fn new(value: L) -> Self {
+    pub fn new(value: S) -> Self {
         Self { value }
     }
 
@@ -209,15 +209,15 @@ impl<L: JoinSemilattice> Cell<L> {
     /// let cell = Cell::new(Max(10));
     /// assert_eq!(cell.value(), &Max(10));
     /// ```
-    pub fn value(&self) -> &L {
+    pub fn value(&self) -> &S {
         &self.value
     }
 
-    /// Merge a new value into the cell via lattice join.
+    /// Merge a new value into the cell via the semigroup combine operation.
     ///
     /// Returns `true` if the cell's value changed, `false` if it
     /// remained the same. A change indicates that the new value added
-    /// information (grew in the lattice).
+    /// information (the combine produced a new value).
     ///
     /// # Example
     ///
@@ -231,11 +231,11 @@ impl<L: JoinSemilattice> Cell<L> {
     /// assert!(!cell.merge(Max(7)));   // 10 → 10 (unchanged, 7 < 10)
     /// assert!(cell.merge(Max(15)));   // 10 → 15 (changed)
     /// ```
-    pub fn merge(&mut self, new_value: L) -> bool
+    pub fn merge(&mut self, new_value: S) -> bool
     where
-        L: PartialEq,
+        S: PartialEq,
     {
-        let merged = self.value.join(&new_value);
+        let merged = self.value.combine(&new_value);
         if merged != self.value {
             self.value = merged;
             true
@@ -245,21 +245,21 @@ impl<L: JoinSemilattice> Cell<L> {
     }
 }
 
-/// A propagator network containing cells with heterogeneous lattice types.
+/// A propagator network containing cells with heterogeneous semigroup types.
 ///
 /// Networks store cells in a type-erased container (`Box<dyn Any>`) while
-/// maintaining type safety through [`CellId<L>`]. This allows a single network
-/// to contain cells of different types (e.g., `Cell<i32>`, `Cell<HashSet<String>>`,
+/// maintaining type safety through [`CellId<S>`]. This allows a single network
+/// to contain cells of different types (e.g., `Cell<Max<i32>>`, `Cell<HashSet<String>>`,
 /// etc.) without requiring all cells to share a common trait object type.
 ///
 /// # Type Erasure
 ///
 /// The network uses a two-layer type system:
 /// - **Storage**: Cells stored as `Box<dyn Any>` (heterogeneous)
-/// - **API**: `CellId<L>` carries type information (type-safe)
+/// - **API**: `CellId<S>` carries type information (type-safe)
 ///
-/// When you create a cell, you get back a `CellId<L>` that remembers the type.
-/// When you access the cell, the network uses the type from `CellId<L>` to
+/// When you create a cell, you get back a `CellId<S>` that remembers the type.
+/// When you access the cell, the network uses the type from `CellId<S>` to
 /// safely downcast from `Any` back to the concrete type.
 ///
 /// # Example
@@ -310,8 +310,8 @@ impl Network {
 
     /// Add a new cell to the network with an initial value.
     ///
-    /// Returns a typed `CellId<L>` that can be used to access this cell.
-    /// The type parameter `L` is inferred from the initial value.
+    /// Returns a typed `CellId<S>` that can be used to access this cell.
+    /// The type parameter `S` is inferred from the initial value.
     ///
     /// # Example
     ///
@@ -324,7 +324,7 @@ impl Network {
     ///
     /// assert_eq!(net.read(cell), &Max(42));
     /// ```
-    pub fn add_cell<L: JoinSemilattice + 'static>(&mut self, initial: L) -> CellId<L> {
+    pub fn add_cell<S: Semigroup + 'static>(&mut self, initial: S) -> CellId<S> {
         let id = self.next_id;
         self.next_id += 1;
         self.cells.insert(id, Box::new(Cell::new(initial)));
@@ -349,17 +349,17 @@ impl Network {
     ///
     /// assert_eq!(net.read(cell), &HashSet::from([1, 2, 3]));
     /// ```
-    pub fn read<L: JoinSemilattice + 'static>(&self, id: CellId<L>) -> &L {
+    pub fn read<S: Semigroup + 'static>(&self, id: CellId<S>) -> &S {
         self.cells[&id.raw()]
-            .downcast_ref::<Cell<L>>()
+            .downcast_ref::<Cell<S>>()
             .expect("type mismatch")
             .value()
     }
 
-    /// Merge a value into a cell via lattice join.
+    /// Merge a value into a cell via semigroup combine.
     ///
     /// Returns `true` if the cell's value changed, `false` otherwise.
-    /// A change means the new value added information (grew in the lattice order).
+    /// A change means the new value added information (combine produced a new value).
     ///
     /// # Panics
     ///
@@ -378,15 +378,15 @@ impl Network {
     /// assert!(!net.merge(cell, Max(7)));   // unchanged: 10 → 10
     /// assert_eq!(net.read(cell), &Max(10));
     /// ```
-    pub fn merge<L: JoinSemilattice + PartialEq + 'static>(
+    pub fn merge<S: Semigroup + PartialEq + 'static>(
         &mut self,
-        id: CellId<L>,
-        value: L,
+        id: CellId<S>,
+        value: S,
     ) -> bool {
         self.cells
             .get_mut(&id.raw())
             .expect("cell not found")
-            .downcast_mut::<Cell<L>>()
+            .downcast_mut::<Cell<S>>()
             .expect("type mismatch")
             .merge(value)
     }
@@ -403,19 +403,21 @@ impl Default for Network {
 /// Propagators are functions that read values from cells and write values to cells.
 /// When activated, a propagator reads its input cells, performs some computation,
 /// and merges the result into output cells. Since all updates are monotonic (via
-/// lattice join), the order of propagator activations doesn't affect the final result.
+/// semigroup combine), the order of propagator activations doesn't affect the final result.
 ///
 /// # Monotonicity
 ///
-/// Propagators must be **monotonic**: if inputs grow (in the lattice order), outputs
-/// can only grow (never shrink). This ensures that the network converges to a unique
-/// fixed point regardless of execution order.
+/// Propagators must be **monotonic**: if inputs grow, outputs can only grow (never shrink).
+/// For lattices, this means respecting the partial order. For general semigroups, this means
+/// the computation is compatible with the associative structure. This ensures that the network
+/// converges to a unique fixed point regardless of execution order.
 ///
 /// # Example
 ///
 /// ```rust
 /// use postbox::propagator::{Propagator, Network, CellId};
-/// use postbox::join_semilattice::{Max, JoinSemilattice};
+/// use postbox::join_semilattice::Max;
+/// use algebra_core::Semigroup;
 ///
 /// // A propagator that computes max(a, b) → c
 /// struct MaxPropagator {
@@ -428,7 +430,7 @@ impl Default for Network {
 ///     fn activate(&mut self, net: &mut Network) {
 ///         let a_val = *net.read(self.a);
 ///         let b_val = *net.read(self.b);
-///         let result = a_val.join(&b_val);
+///         let result = a_val.combine(&b_val);
 ///         net.merge(self.c, result);
 ///     }
 /// }
@@ -568,7 +570,7 @@ mod tests {
     // a fixed point.
     #[test]
     fn full_propagator_example() {
-        use crate::join_semilattice::JoinSemilattice;
+        use algebra_core::Semigroup;
 
         // Propagator: c = max(a, b)
         struct MaxProp {
@@ -579,7 +581,7 @@ mod tests {
 
         impl Propagator for MaxProp {
             fn activate(&mut self, net: &mut Network) {
-                let result = net.read(self.a).join(net.read(self.b));
+                let result = net.read(self.a).combine(net.read(self.b));
                 net.merge(self.c, result);
             }
         }

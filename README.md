@@ -74,6 +74,13 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - 📬 `LVar<L>`: monotone, join-only async cell
 - 📬 `MVar<T>`: classic single-slot async cell (not monotone)
 
+### Propagator networks (from `postbox`):
+- 🔄 Monotonic computation with semigroup-valued cells
+- Works with any semigroup: lattices (Max, HashSet), gradients (addition), or custom algebras
+- Type-safe heterogeneous networks via `CellId<S>`
+- Sync and async support
+- Core types: `Network`, `Cell<S>`, `CellId<S>`, `Propagator` trait
+
 ### State-based CRDTs (from `postbox`):
 - `GCounter<Id>`: grow-only CRDT counter
 - `PNCounter<Id>`: increment/decrement CRDT counter built from two GCounters
@@ -118,3 +125,11 @@ struct Foo {
 ```
 
 The derive macros work for both named structs and tuple structs, and support all algebraic traits: `Semigroup`, `Monoid`, `CommutativeMonoid`, `Group`, `AbelianGroup`, `JoinSemilattice`, and `BoundedJoinSemilattice`.
+
+### Propagator networks
+
+See `examples/propagator_network.rs` for a complete example showing both homogeneous and heterogeneous propagator networks:
+
+```bash
+cargo run --example propagator_network
+```
