@@ -3,7 +3,7 @@
 //!
 //! This crate provides **derive macros** for the `algebra-core` library,
 //! enabling boilerplate-free implementations of algebraic traits for
-//! product types (structs with named fields).
+//! product types (structs with named or unnamed fields).
 //!
 //! ## Supported derives
 //!
@@ -42,21 +42,29 @@ use syn::parse_quote;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Fields;
+use syn::Index;
 
-/// Internal helper: ensure we're deriving on a struct with named fields.
-fn get_named_fields(
+/// Represents how to access a field (by name or by index).
+enum FieldAccessor {
+    Named(syn::Ident),
+    Unnamed(Index),
+}
+
+impl quote::ToTokens for FieldAccessor {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            FieldAccessor::Named(ident) => ident.to_tokens(tokens),
+            FieldAccessor::Unnamed(index) => index.to_tokens(tokens),
+        }
+    }
+}
+
+/// Extract fields from a struct (named or unnamed) and return field accessors and types.
+fn get_fields(
     input: &DeriveInput,
-) -> Result<&syn::punctuated::Punctuated<syn::Field, syn::token::Comma>, TokenStream> {
+) -> Result<(Vec<FieldAccessor>, Vec<&syn::Type>), TokenStream> {
     let fields = match &input.data {
-        Data::Struct(s) => match &s.fields {
-            Fields::Named(named) => &named.named,
-            _ => {
-                let msg = "derive macros currently only support structs with named fields";
-                return Err(syn::Error::new_spanned(&input.ident, msg)
-                    .to_compile_error()
-                    .into());
-            }
-        },
+        Data::Struct(s) => &s.fields,
         _ => {
             let msg = "derive macros are only supported on structs";
             return Err(syn::Error::new_spanned(&input.ident, msg)
@@ -65,7 +73,51 @@ fn get_named_fields(
         }
     };
 
-    Ok(fields)
+    let (accessors, types): (Vec<_>, Vec<_>) = match fields {
+        Fields::Named(named) => named
+            .named
+            .iter()
+            .map(|f| {
+                let accessor = FieldAccessor::Named(f.ident.clone().expect("named field"));
+                (accessor, &f.ty)
+            })
+            .unzip(),
+        Fields::Unnamed(unnamed) => unnamed
+            .unnamed
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let accessor = FieldAccessor::Unnamed(Index::from(i));
+                (accessor, &f.ty)
+            })
+            .unzip(),
+        Fields::Unit => (Vec::new(), Vec::new()),
+    };
+
+    Ok((accessors, types))
+}
+
+/// Helper to generate struct construction syntax.
+/// For named fields: `Name { field1: val1, field2: val2 }`
+/// For tuple fields: `Name(val0, val1)`
+/// For unit: `Name`
+fn construct_struct(
+    name: &syn::Ident,
+    fields: &Fields,
+    values: &[proc_macro2::TokenStream],
+) -> proc_macro2::TokenStream {
+    match fields {
+        Fields::Named(named) => {
+            let field_names = named.named.iter().map(|f| &f.ident);
+            quote! { #name { #( #field_names: #values ),* } }
+        }
+        Fields::Unnamed(_) => {
+            quote! { #name( #( #values ),* ) }
+        }
+        Fields::Unit => {
+            quote! { #name }
+        }
+    }
 }
 
 /// Derive macro for [`Semigroup`](https://docs.rs/algebra-core/latest/algebra_core/trait.Semigroup.html).
@@ -86,16 +138,10 @@ pub fn derive_semigroup(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let fields = match get_named_fields(&input) {
+    let (field_accessors, field_types) = match get_fields(&input) {
         Ok(f) => f,
         Err(ts) => return ts,
     };
-
-    let field_idents: Vec<_> = fields
-        .iter()
-        .map(|f| f.ident.as_ref().expect("named fields only"))
-        .collect();
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     let mut generics = input.generics.clone();
     {
@@ -109,14 +155,26 @@ pub fn derive_semigroup(input: TokenStream) -> TokenStream {
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    // Generate combine expressions for each field
+    let combine_exprs: Vec<_> = field_accessors
+        .iter()
+        .map(|accessor| {
+            quote! { ::algebra_core::Semigroup::combine(&self.#accessor, &other.#accessor) }
+        })
+        .collect();
+
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        _ => unreachable!(),
+    };
+    let construction = construct_struct(name, fields, &combine_exprs);
+
     let expanded = quote! {
         impl #impl_generics ::algebra_core::Semigroup for #name #ty_generics
         #where_clause
         {
             fn combine(&self, other: &Self) -> Self {
-                #name {
-                    #( #field_idents: ::algebra_core::Semigroup::combine(&self.#field_idents, &other.#field_idents), )*
-                }
+                #construction
             }
         }
     };
@@ -142,16 +200,10 @@ pub fn derive_monoid(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let fields = match get_named_fields(&input) {
+    let (_field_accessors, field_types) = match get_fields(&input) {
         Ok(f) => f,
         Err(ts) => return ts,
     };
-
-    let field_idents: Vec<_> = fields
-        .iter()
-        .map(|f| f.ident.as_ref().expect("named fields only"))
-        .collect();
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     let mut generics = input.generics.clone();
     {
@@ -165,14 +217,26 @@ pub fn derive_monoid(input: TokenStream) -> TokenStream {
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    // Generate empty expressions for each field
+    let empty_exprs: Vec<_> = field_types
+        .iter()
+        .map(|_ty| {
+            quote! { ::algebra_core::Monoid::empty() }
+        })
+        .collect();
+
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        _ => unreachable!(),
+    };
+    let construction = construct_struct(name, fields, &empty_exprs);
+
     let expanded = quote! {
         impl #impl_generics ::algebra_core::Monoid for #name #ty_generics
         #where_clause
         {
             fn empty() -> Self {
-                #name {
-                    #( #field_idents: ::algebra_core::Monoid::empty(), )*
-                }
+                #construction
             }
         }
     };
@@ -199,12 +263,10 @@ pub fn derive_commutative_monoid(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let fields = match get_named_fields(&input) {
+    let (_field_accessors, field_types) = match get_fields(&input) {
         Ok(f) => f,
         Err(ts) => return ts,
     };
-
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     let mut generics = input.generics.clone();
     {
@@ -245,16 +307,10 @@ pub fn derive_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let fields = match get_named_fields(&input) {
+    let (field_accessors, field_types) = match get_fields(&input) {
         Ok(f) => f,
         Err(ts) => return ts,
     };
-
-    let field_idents: Vec<_> = fields
-        .iter()
-        .map(|f| f.ident.as_ref().expect("named fields only"))
-        .collect();
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     let mut generics = input.generics.clone();
     {
@@ -268,14 +324,26 @@ pub fn derive_group(input: TokenStream) -> TokenStream {
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    // Generate inverse expressions for each field
+    let inverse_exprs: Vec<_> = field_accessors
+        .iter()
+        .map(|accessor| {
+            quote! { ::algebra_core::Group::inverse(&self.#accessor) }
+        })
+        .collect();
+
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        _ => unreachable!(),
+    };
+    let construction = construct_struct(name, fields, &inverse_exprs);
+
     let expanded = quote! {
         impl #impl_generics ::algebra_core::Group for #name #ty_generics
         #where_clause
         {
             fn inverse(&self) -> Self {
-                #name {
-                    #( #field_idents: ::algebra_core::Group::inverse(&self.#field_idents), )*
-                }
+                #construction
             }
         }
     };
@@ -302,12 +370,10 @@ pub fn derive_abelian_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let fields = match get_named_fields(&input) {
+    let (_field_accessors, field_types) = match get_fields(&input) {
         Ok(f) => f,
         Err(ts) => return ts,
     };
-
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     let mut generics = input.generics.clone();
     {
@@ -348,16 +414,10 @@ pub fn derive_join_semilattice(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let fields = match get_named_fields(&input) {
+    let (field_accessors, field_types) = match get_fields(&input) {
         Ok(f) => f,
         Err(ts) => return ts,
     };
-
-    let field_idents: Vec<_> = fields
-        .iter()
-        .map(|f| f.ident.as_ref().expect("named fields only"))
-        .collect();
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     let mut generics = input.generics.clone();
     {
@@ -371,14 +431,26 @@ pub fn derive_join_semilattice(input: TokenStream) -> TokenStream {
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    // Generate join expressions for each field
+    let join_exprs: Vec<_> = field_accessors
+        .iter()
+        .map(|accessor| {
+            quote! { ::algebra_core::JoinSemilattice::join(&self.#accessor, &other.#accessor) }
+        })
+        .collect();
+
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        _ => unreachable!(),
+    };
+    let construction = construct_struct(name, fields, &join_exprs);
+
     let expanded = quote! {
         impl #impl_generics ::algebra_core::JoinSemilattice for #name #ty_generics
         #where_clause
         {
             fn join(&self, other: &Self) -> Self {
-                #name {
-                    #( #field_idents: ::algebra_core::JoinSemilattice::join(&self.#field_idents, &other.#field_idents), )*
-                }
+                #construction
             }
         }
     };
@@ -405,16 +477,10 @@ pub fn derive_bounded_join_semilattice(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let fields = match get_named_fields(&input) {
+    let (_field_accessors, field_types) = match get_fields(&input) {
         Ok(f) => f,
         Err(ts) => return ts,
     };
-
-    let field_idents: Vec<_> = fields
-        .iter()
-        .map(|f| f.ident.as_ref().expect("named fields only"))
-        .collect();
-    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     let mut generics = input.generics.clone();
     {
@@ -428,14 +494,26 @@ pub fn derive_bounded_join_semilattice(input: TokenStream) -> TokenStream {
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    // Generate bottom expressions for each field
+    let bottom_exprs: Vec<_> = field_types
+        .iter()
+        .map(|_ty| {
+            quote! { ::algebra_core::BoundedJoinSemilattice::bottom() }
+        })
+        .collect();
+
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        _ => unreachable!(),
+    };
+    let construction = construct_struct(name, fields, &bottom_exprs);
+
     let expanded = quote! {
         impl #impl_generics ::algebra_core::BoundedJoinSemilattice for #name #ty_generics
         #where_clause
         {
             fn bottom() -> Self {
-                #name {
-                    #( #field_idents: ::algebra_core::BoundedJoinSemilattice::bottom(), )*
-                }
+                #construction
             }
         }
     };

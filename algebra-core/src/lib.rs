@@ -654,4 +654,72 @@ mod tests {
         let y = AddInt(-7);
         assert_eq!(x.combine(&y), y.combine(&x));
     }
+
+    // Tests for derive macros on tuple structs
+    #[cfg(feature = "derive")]
+    mod derive_tuple_tests {
+        use super::*;
+
+        #[derive(Clone, Debug, PartialEq, Eq, Semigroup, Monoid)]
+        struct TupleMonoid(Sum, HashSet<String>);
+
+        #[test]
+        fn tuple_monoid_empty_works() {
+            let empty = TupleMonoid::empty();
+            assert_eq!(empty.0, Sum(0));
+            assert_eq!(empty.1, HashSet::<String>::new());
+        }
+
+        #[test]
+        fn tuple_semigroup_combine_works() {
+            let x = TupleMonoid(Sum(3), ["a".to_string()].into_iter().collect());
+            let y = TupleMonoid(Sum(5), ["b".to_string()].into_iter().collect());
+            let result = x.combine(&y);
+            assert_eq!(result.0, Sum(8));
+            assert_eq!(
+                result.1,
+                ["a".to_string(), "b".to_string()].into_iter().collect()
+            );
+        }
+
+        #[derive(Clone, Debug, PartialEq, Eq, JoinSemilattice, BoundedJoinSemilattice)]
+        struct TupleLattice(HashSet<i32>, HashSet<String>);
+
+        #[test]
+        fn tuple_lattice_bottom_works() {
+            let bottom = TupleLattice::bottom();
+            assert!(bottom.0.is_empty());
+            assert!(bottom.1.is_empty());
+        }
+
+        #[test]
+        fn tuple_lattice_join_works() {
+            let x = TupleLattice(
+                [1, 2].into_iter().collect(),
+                ["a".to_string()].into_iter().collect(),
+            );
+            let y = TupleLattice(
+                [2, 3].into_iter().collect(),
+                ["b".to_string()].into_iter().collect(),
+            );
+            let result = x.join(&y);
+            assert_eq!(result.0, [1, 2, 3].into_iter().collect());
+            assert_eq!(
+                result.1,
+                ["a".to_string(), "b".to_string()].into_iter().collect()
+            );
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Semigroup, Monoid, Group)]
+        struct TupleGroup(AddInt, AddInt);
+
+        #[test]
+        fn tuple_group_inverse_works() {
+            let x = TupleGroup(AddInt(3), AddInt(5));
+            let inv = x.inverse();
+            assert_eq!(inv.0, AddInt(-3));
+            assert_eq!(inv.1, AddInt(-5));
+            assert_eq!(x.combine(&inv), TupleGroup::empty());
+        }
+    }
 }
