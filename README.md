@@ -1,6 +1,7 @@
 # postbox
 
 [![Build and test](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml)
+[![codecov](https://codecov.io/gh/shayne-fletcher/postbox/branch/main/graph/badge.svg)](https://codecov.io/gh/shayne-fletcher/postbox)
 
 Lattice-based state + async cells for Rust.
 
