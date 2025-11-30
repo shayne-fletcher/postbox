@@ -60,9 +60,7 @@ impl quote::ToTokens for FieldAccessor {
 }
 
 /// Extract fields from a struct (named or unnamed) and return field accessors and types.
-fn get_fields(
-    input: &DeriveInput,
-) -> Result<(Vec<FieldAccessor>, Vec<&syn::Type>), TokenStream> {
+fn get_fields(input: &DeriveInput) -> Result<(Vec<FieldAccessor>, Vec<&syn::Type>), TokenStream> {
     let fields = match &input.data {
         Data::Struct(s) => &s.fields,
         _ => {
