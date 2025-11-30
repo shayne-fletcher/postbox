@@ -19,6 +19,8 @@
 //!     concurrent writes)
 //! - [`lvar`] *(feature = "async")*: an **LVar-style** cell whose
 //!   state only grows by lattice join
+//! - [`propagator`] *(feature = "async")*: **propagator networks** for
+//!   monotonic computation with lattice-valued cells
 //! - [`join_stream_ext`] *(feature = "async")*: stream adapters to
 //!   fold `Stream<Item = L>` by lattice join
 //! - [`mvar`] *(feature = "async")*: a classic **MVar** (single-slot
@@ -124,6 +126,11 @@ pub mod join_stream_ext;
 /// A classic single-slot async **MVar** (blocking put/take). Not
 /// monotone.
 pub mod mvar;
+
+#[cfg(feature = "async")]
+/// Propagator networks for monotonic computation with
+/// lattice-valued cells.
+pub mod propagator;
 
 // Re-export the traits (and derive macros when derive feature is enabled)
 // The derive macros come from algebra_core, which re-exports them from algebra-core-derive
