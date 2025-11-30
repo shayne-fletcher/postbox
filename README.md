@@ -14,7 +14,23 @@ This workspace contains:
 - **`algebra-core-derive`**: Derive macros for algebraic traits
 - **`postbox`**: Lattice-based state, LVars, MVars, and CRDTs built on algebra-core
 
-**Core traits & helpers:**
+## Getting Started
+
+Add `postbox` to your `Cargo.toml`:
+
+```toml
+[dependencies]
+postbox = "0.1"
+
+# To use derive macros:
+postbox = { version = "0.1", features = ["derive"] }
+```
+
+The `postbox` crate re-exports all traits from `algebra-core`, so you can use everything through `postbox`. If you only need the algebraic abstractions without async cells or CRDTs, you can depend on `algebra-core` directly.
+
+## Features
+
+### Core traits & helpers (from `algebra-core`):
 - `JoinSemilattice` and `BoundedJoinSemilattice` traits
 - `Max<T>`, `Min<T>`: lattice wrappers for max/min
 - `Any`, `All`: boolean lattices (OR/AND)
@@ -22,11 +38,11 @@ This workspace contains:
 - `JoinOf<L>`, `NonEmptyJoinOf<L>`: collect iterators by lattice join
 - `LatticeMap<K, V>`: pointwise map lattice (building block for CRDT states)
 
-**Async cells:**
+### Async cells (from `postbox`):
 - 📬 `LVar<L>`: monotone, join-only async cell
 - 📬 `MVar<T>`: classic single-slot async cell (not monotone)
 
-**State-based CRDTs:**
+### State-based CRDTs (from `postbox`):
 - `GCounter<Id>`: grow-only CRDT counter
 - `PNCounter<Id>`: increment/decrement CRDT counter built from two GCounters
 - `GSet<T>`: grow-only CRDT set
@@ -35,12 +51,16 @@ This workspace contains:
 - `LWW<T>`: last-writer-wins register
 - `MVRegister<T, Ts, Id>`: multi-value register (keeps all concurrent writes)
 
-**Stream extensions:**
+### Stream extensions (from `postbox`):
 - `JoinStreamExt`: fold `Stream<Item = L>` by lattice join
+
+## Examples
+
+### Basic usage
 
 ```rust
 use std::collections::HashSet;
-use postbox::join_semilattice::BoundedJoinSemilattice
+use postbox::join_semilattice::BoundedJoinSemilattice;
 use postbox::join_semilattice::JoinSemilattice;
 
 let a: HashSet<_> = [1, 2].into_iter().collect();
@@ -49,7 +69,9 @@ let j = a.join(&b);
 assert_eq!(j, HashSet::from([1, 2, 3]));
 ```
 
-### Derive example
+### Deriving traits
+
+Enable the `derive` feature to automatically implement algebraic traits for your types:
 
 ```rust
 use std::collections::HashSet;
@@ -62,3 +84,5 @@ struct Foo {
     b: HashSet<i32>,   // join = union, bottom = ∅
 }
 ```
+
+The derive macros work for both named structs and tuple structs, and support all algebraic traits: `Semigroup`, `Monoid`, `CommutativeMonoid`, `Group`, `AbelianGroup`, `JoinSemilattice`, and `BoundedJoinSemilattice`.
