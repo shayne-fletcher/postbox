@@ -1,9 +1,9 @@
 //! Core **join-semilattice** traits and building blocks.
 //!
-//! This module defines [`JoinSemilattice`] and
-//! [`BoundedJoinSemilattice`], plus a small toolkit of concrete
-//! lattices and combinators that are convenient for CRDTs and other
-//! monotone data structures.
+//! This module re-exports [`JoinSemilattice`] and
+//! [`BoundedJoinSemilattice`] from [`algebra_core`], plus provides a
+//! small toolkit of concrete lattices and combinators that are
+//! convenient for CRDTs and other monotone data structures.
 //!
 //! # Overview
 //!
@@ -50,87 +50,13 @@
 //! These primitives are intentionally small and generic. Higher-level
 //! CRDTs in this crate build on them to express their replica states
 //! as lattices with well-defined, convergent merge operations.
-use std::collections::BTreeSet;
+
+// Re-export traits from algebra-core
+pub use algebra_core::{BoundedJoinSemilattice, JoinSemilattice};
+
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::hash::Hash;
 use std::ops::Deref;
-
-/// A type whose values form a **join-semilattice**.
-///
-/// Provides a binary `join` (∨) that must be **associative**,
-/// **commutative**, and **idempotent** (not enforced by the type
-/// system):
-///   - Commutative: a.join(b) == b.join(a)
-///   - Associative: a.join(b).join(c) == a.join(b.join(c))
-///   - Idempotent: a.join(a) == a
-///
-/// The induced partial order is: `x ≤ y` iff `x.join(&y) == y`. When
-/// a bottom element exists, also implement `BoundedJoinSemilattice`
-/// with `bottom()`.
-pub trait JoinSemilattice: Sized {
-    /// The join (least upper bound).
-    fn join(&self, other: &Self) -> Self;
-
-    /// In-place variant.
-    fn join_assign(&mut self, other: &Self) {
-        let x = self.join(other);
-        *self = x;
-    }
-
-    /// Derived partial order: x <= y iff x ∨ y = y.
-    fn leq(&self, other: &Self) -> bool
-    where
-        Self: PartialEq,
-    {
-        self.join(other) == *other
-    }
-
-    /// Join a finite iterator of values. Returns `None` for empty
-    /// iterators.
-    fn join_all<I>(it: I) -> Option<Self>
-    where
-        I: IntoIterator<Item = Self>,
-        Self: Sized,
-    {
-        it.into_iter().reduce(|acc, x| acc.join(&x))
-    }
-
-    /// A by-reference variant to avoid moving items.
-    fn join_all_ref<'a, I>(it: I) -> Option<Self>
-    where
-        I: IntoIterator<Item = &'a Self>,
-        Self: Sized + 'a + Clone,
-    {
-        it.into_iter().cloned().reduce(|acc, x| acc.join(&x))
-    }
-}
-
-/// A join-semilattice with a bottom element (⊥).
-pub trait BoundedJoinSemilattice: JoinSemilattice {
-    /// The bottom element of the lattice (⊥).
-    ///
-    /// This is the least element w.r.t. the induced partial order:
-    /// for all `x`, `bottom().join(&x) == x`.
-    fn bottom() -> Self;
-
-    /// Join a finite iterator of values, starting from ⊥.
-    ///
-    /// This is equivalent to:
-    ///
-    /// ```ignore
-    /// it.into_iter().fold(Self::bottom(), |acc, x| acc.join(&x))
-    /// ```
-    ///
-    /// It never returns `None`: an empty iterator produces
-    /// `bottom()`.
-    fn join_all_from_bottom<I>(it: I) -> Self
-    where
-        I: IntoIterator<Item = Self>,
-    {
-        it.into_iter().fold(Self::bottom(), |acc, x| acc.join(&x))
-    }
-}
 
 // join = max
 
@@ -667,43 +593,6 @@ impl<T> algebra_core::CommutativeMonoid for BitAnd<T> where
 {
 }
 
-// HashSet: join = union
-
-impl<T: Eq + Hash + Clone> JoinSemilattice for HashSet<T> {
-    fn join(&self, other: &Self) -> Self {
-        if self.len() >= other.len() {
-            let mut out = self.clone();
-            out.extend(other.iter().cloned());
-            out
-        } else {
-            let mut out = other.clone();
-            out.extend(self.iter().cloned());
-            out
-        }
-    }
-}
-
-impl<T: Eq + Hash + Clone> BoundedJoinSemilattice for HashSet<T> {
-    fn bottom() -> Self {
-        HashSet::new()
-    }
-}
-
-// BTreeSet: join = union.
-
-impl<T: Ord + Clone> JoinSemilattice for BTreeSet<T> {
-    fn join(&self, other: &Self) -> Self {
-        // BTreeSet::union returns an iterator.
-        self.union(other).cloned().collect()
-    }
-}
-
-impl<T: Ord + Clone> BoundedJoinSemilattice for BTreeSet<T> {
-    fn bottom() -> Self {
-        BTreeSet::new()
-    }
-}
-
 /// Pointwise map lattice over `HashMap`.
 ///
 /// Keys are optional; values form a join-semilattice. The induced
@@ -802,75 +691,6 @@ where
         }
     }
 }
-
-// Option: None as bottom; Some joins inner
-
-impl<L: JoinSemilattice + Clone> JoinSemilattice for Option<L> {
-    fn join(&self, other: &Self) -> Self {
-        match (self, other) {
-            (None, x) | (x, None) => x.clone(),
-            (Some(a), Some(b)) => Some(a.join(b)),
-        }
-    }
-}
-
-impl<L: JoinSemilattice + Clone> BoundedJoinSemilattice for Option<L> {
-    fn bottom() -> Self {
-        None
-    }
-}
-
-// Product lattice: componentwise join
-
-// impl<A, B> JoinSemilattice for (A, B)
-// where
-//     A: JoinSemilattice + Clone,
-//     B: JoinSemilattice + Clone,
-// {
-//     fn join(&self, other: &Self) -> Self {
-//         (self.0.join(&other.0), self.1.join(&other.1))
-//     }
-// }
-//
-// impl<A, B> BoundedJoinSemilattice for (A, B)
-// where
-//     A: BoundedJoinSemilattice + Clone,
-//     B: BoundedJoinSemilattice + Clone,
-// {
-//     fn bottom() -> Self {
-//         (A::bottom(), B::bottom())
-//     }
-// }
-
-macro_rules! impl_product_lattice {
-    ( $( $T:ident : $idx:tt ),+ ) => {
-        impl<$( $T ),+> JoinSemilattice for ( $( $T, )+ )
-        where
-            $( $T: JoinSemilattice ),+
-        {
-            fn join(&self, other: &Self) -> Self {
-                (
-                    $( self.$idx.join(&other.$idx) ),+
-                )
-            }
-        }
-
-        impl<$( $T ),+> BoundedJoinSemilattice for ( $( $T, )+ )
-        where
-            $( $T: BoundedJoinSemilattice ),+
-        {
-            fn bottom() -> Self {
-                (
-                    $( $T::bottom() ),+
-                )
-            }
-        }
-    }
-}
-
-impl_product_lattice!(A:0, B:1);
-impl_product_lattice!(A:0, B:1, C:2);
-impl_product_lattice!(A:0, B:1, C:2, D:3);
 
 // JoinOf<L> (bounded)
 
