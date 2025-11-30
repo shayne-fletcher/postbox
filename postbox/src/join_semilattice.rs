@@ -68,7 +68,7 @@ pub trait JoinSemilattice: Sized {
     /// The join (least upper bound).
     fn join(&self, other: &Self) -> Self;
 
-    // In-place variant.
+    /// In-place variant.
     fn join_assign(&mut self, other: &Self) {
         let x = self.join(other);
         *self = x;
@@ -92,7 +92,7 @@ pub trait JoinSemilattice: Sized {
         it.into_iter().reduce(|acc, x| acc.join(&x))
     }
 
-    // A by-reference variant to avoid moving items.
+    /// A by-reference variant to avoid moving items.
     fn join_all_ref<'a, I>(it: I) -> Option<Self>
     where
         I: IntoIterator<Item = &'a Self>,
@@ -104,8 +104,22 @@ pub trait JoinSemilattice: Sized {
 
 /// A join-semilattice with a bottom element (⊥).
 pub trait BoundedJoinSemilattice: JoinSemilattice {
+    /// The bottom element of the lattice (⊥).
+    ///
+    /// This is the least element w.r.t. the induced partial order:
+    /// for all `x`, `bottom().join(&x) == x`.
     fn bottom() -> Self;
 
+    /// Join a finite iterator of values, starting from ⊥.
+    ///
+    /// This is equivalent to:
+    ///
+    /// ```ignore
+    /// it.into_iter().fold(Self::bottom(), |acc, x| acc.join(&x))
+    /// ```
+    ///
+    /// It never returns `None`: an empty iterator produces
+    /// `bottom()`.
     fn join_all_from_bottom<I>(it: I) -> Self
     where
         I: IntoIterator<Item = Self>,
@@ -419,6 +433,7 @@ impl_product_lattice!(A:0, B:1, C:2, D:3);
 pub struct JoinOf<L>(pub L);
 
 impl<L> JoinOf<L> {
+    /// Unwrap the inner value.
     pub fn into_inner(self) -> L {
         self.0
     }
@@ -488,6 +503,7 @@ where
 pub struct NonEmptyJoinOf<L>(pub L);
 
 impl<L> NonEmptyJoinOf<L> {
+    /// Unwrap the inner value.
     pub fn into_inner(self) -> L {
         self.0
     }

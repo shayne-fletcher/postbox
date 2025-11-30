@@ -65,14 +65,14 @@ impl<Id> GCounterState<Id>
 where
     Id: Eq + Hash + Clone,
 {
-    // Create an empty state (no replicas, logically all zero).
+    /// Create an empty state (no replicas, logically all zero).
     pub fn new() -> Self {
         Self {
             counts: HashMap::new(),
         }
     }
 
-    // Reads raw per-replica counts.
+    /// Reads raw per-replica counts.
     pub fn counts(&self) -> &HashMap<Id, u64> {
         &self.counts
     }
@@ -156,7 +156,7 @@ impl<Id> GCounter<Id>
 where
     Id: Eq + Hash + Clone,
 {
-    // Create a new GCounter for this replica ID.
+    /// Create a new GCounter for this replica ID.
     pub fn new(id: Id) -> Self {
         Self {
             id,
@@ -164,17 +164,17 @@ where
         }
     }
 
-    // Replica ID for this counter.
+    /// Replica ID for this counter.
     pub fn id(&self) -> &Id {
         &self.id
     }
 
-    // Current value (sum of all components).
+    /// Current value (sum of all components).
     pub fn value(&self) -> u64 {
         self.state.value()
     }
 
-    // Read the underlying lattice (for replication).
+    /// Read the underlying lattice state (for replication).
     pub fn state(&self) -> &GCounterState<Id> {
         &self.state
     }
@@ -729,8 +729,10 @@ where
 /// when a true bottom element is needed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LWW<T> {
+    /// The current value of the register.
     pub value: T,
-    pub ts: u64, // logical timestamp
+    /// The logical timestamp associated with this value.
+    pub ts: u64,
 }
 
 impl<T: Clone> JoinSemilattice for LWW<T> {

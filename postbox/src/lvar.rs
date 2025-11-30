@@ -115,6 +115,13 @@ where
         }
     }
 
+    /// Wait until an arbitrary monotone predicate holds.
+    ///
+    /// The predicate `p` must be monotone: if `p(x)` is true and `x ≤ y`,
+    /// then `p(y)` must also be true. This ensures the condition can only
+    /// become true, never false again.
+    ///
+    /// Returns the first value for which `p` returns `true`.
     pub async fn await_monotone<F>(&self, mut p: F) -> L
     where
         F: FnMut(&L) -> bool + Send,

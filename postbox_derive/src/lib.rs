@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! # postbox_derive — procedural macros for lattice types
 //!
 //! This crate provides the **derive macros** for the `postbox`
@@ -73,6 +74,11 @@ fn get_named_fields(
     Ok(fields)
 }
 
+/// Derive macro for [`JoinSemilattice`].
+///
+/// This implements `JoinSemilattice` for a struct or enum by joining
+/// each field/component with its own `JoinSemilattice`
+/// implementation.
 #[proc_macro_derive(JoinSemilattice)]
 pub fn derive_join_semilattice(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -120,6 +126,14 @@ pub fn derive_join_semilattice(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// Derive macro for [`BoundedJoinSemilattice`].
+///
+/// Generates a `BoundedJoinSemilattice` implementation for a struct
+/// or enum by:
+/// - delegating `join` to the derived [`JoinSemilattice`] impl, and
+/// - defining `bottom()` by calling
+///   `BoundedJoinSemilattice::bottom()` on each field and assembling
+///   the result.
 #[proc_macro_derive(BoundedJoinSemilattice)]
 pub fn derive_bounded_join_semilattice(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

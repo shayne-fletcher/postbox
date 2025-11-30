@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! # postbox — lattice basics + async join cells
 //!
 //! Core pieces:
