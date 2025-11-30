@@ -8,6 +8,7 @@ Lattice-based state + async cells for Rust:
 - `JoinSemilattice` and `BoundedJoinSemilattice` traits
 - `Max<T>`, `Min<T>`: lattice wrappers for max/min
 - `JoinOf<L>`, `NonEmptyJoinOf<L>`: collect iterators by lattice join
+- `LatticeMap<K, V>`: pointwise map lattice (building block for CRDT states)
 
 **Async cells:**
 - `LVar<L>`: monotone, join-only async cell

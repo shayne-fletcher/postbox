@@ -1,4 +1,53 @@
+//! Core **join-semilattice** traits and building blocks.
+//!
+//! This module defines [`JoinSemilattice`] and
+//! [`BoundedJoinSemilattice`], plus a small toolkit of concrete
+//! lattices and combinators that are convenient for CRDTs and other
+//! monotone data structures.
+//!
+//! # Overview
+//!
+//! - [`JoinSemilattice`]: types with an associative, commutative,
+//!   idempotent `join` (∨).
+//! - [`BoundedJoinSemilattice`]: lattices with an explicit bottom
+//!   element (⊥).
+//!
+//! # Provided lattices
+//!
+//! - [`Max<T>`] / [`Min<T>`]:
+//!   wrapper types where `join` is `max` / `min` on the inner value.
+//! - [`HashSet<T>`], [`BTreeSet<T>`]:
+//!   sets with `join = union` and bottom = empty set.
+//! - [`LatticeMap<K, V>`]:
+//!   pointwise map lattice over `HashMap<K, V>` where `V` is a
+//!   lattice; `join` unions keys and joins overlapping values.
+//! - Tuples up to arity 4:
+//!   product lattices with componentwise `join` and bottom.
+//! - [`Option<L>`]:
+//!   lifted lattice with `None` as bottom and `Some(a) ⊔ Some(b)`
+//!   delegating to `L`.
+//! - [`JoinOf<L>`] / [`NonEmptyJoinOf<L>`]:
+//!   helpers for collecting iterators of lattice values by joining
+//!   them (treating empty as ⊥ or returning `None`).
+//!
+//! # Example
+//!
+//! ```rust
+//! use postbox::join_semilattice::{JoinSemilattice, Max};
+//!
+//! let x = Max(1);
+//! let y = Max(3);
+//!
+//! // join = max
+//! let z = x.join(&y);
+//! assert_eq!(z.0, 3);
+//! ```
+//!
+//! These primitives are intentionally small and generic. Higher-level
+//! CRDTs in this crate build on them to express their replica states
+//! as lattices with well-defined, convergent merge operations.
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::ops::Deref;
@@ -141,6 +190,105 @@ impl<T: Ord + Clone> JoinSemilattice for BTreeSet<T> {
 impl<T: Ord + Clone> BoundedJoinSemilattice for BTreeSet<T> {
     fn bottom() -> Self {
         BTreeSet::new()
+    }
+}
+
+/// Pointwise map lattice over `HashMap`.
+///
+/// Keys are optional; values form a join-semilattice. The induced
+/// lattice order is:
+///
+///   m1 ≤ m2  iff  for all k, m1[k] ≤ m2[k]
+///
+/// Operationally, `join` is:
+/// - keys: union of the key sets
+/// - values: pointwise `join` on overlapping keys
+///
+/// Bottom is the empty map.
+///
+/// This is a reusable building block for CRDT states that look like
+/// "map from IDs to lattice values".
+#[derive(Clone, Debug)]
+pub struct LatticeMap<K, V> {
+    inner: HashMap<K, V>,
+}
+
+impl<K, V> LatticeMap<K, V>
+where
+    K: Eq + Hash,
+{
+    /// Create an empty map lattice.
+    pub fn new() -> Self {
+        Self {
+            inner: HashMap::new(),
+        }
+    }
+
+    /// Insert or replace a value for a key.
+    pub fn insert(&mut self, k: K, v: V) {
+        self.inner.insert(k, v);
+    }
+
+    /// Get a reference to the value for this key, if present.
+    pub fn get(&self, k: &K) -> Option<&V> {
+        self.inner.get(k)
+    }
+
+    /// Iterate over `(key, value)` pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.inner.iter()
+    }
+
+    /// Access the underlying `HashMap`.
+    pub fn as_inner(&self) -> &HashMap<K, V> {
+        &self.inner
+    }
+
+    /// Consume the wrapper and return the underlying `HashMap`.
+    pub fn into_inner(self) -> HashMap<K, V> {
+        self.inner
+    }
+
+    /// Number of entries.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Is the map empty?
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl<K, V> JoinSemilattice for LatticeMap<K, V>
+where
+    K: Eq + Hash + Clone,
+    V: JoinSemilattice + Clone,
+{
+    fn join(&self, other: &Self) -> Self {
+        let mut out = self.inner.clone();
+
+        for (k, v_other) in &other.inner {
+            out.entry(k.clone())
+                .and_modify(|v_here| {
+                    *v_here = v_here.join(v_other);
+                })
+                .or_insert_with(|| v_other.clone());
+        }
+
+        LatticeMap { inner: out }
+    }
+}
+
+impl<K, V> BoundedJoinSemilattice for LatticeMap<K, V>
+where
+    K: Eq + Hash + Clone,
+    V: BoundedJoinSemilattice + Clone,
+{
+    fn bottom() -> Self {
+        LatticeMap {
+            inner: HashMap::new(),
+        }
     }
 }
 
@@ -430,5 +578,25 @@ mod tests {
             // HashSet bottom is empty set
             assert!(b.b.is_empty());
         }
+    }
+
+    #[test]
+    fn lattice_map_join_is_pointwise() {
+        // Values are Max<i32>, so join = max on each entry.
+        let mut m1: LatticeMap<&str, Max<i32>> = LatticeMap::new();
+        m1.insert("a", Max(1));
+        m1.insert("b", Max(10));
+
+        let mut m2: LatticeMap<&str, Max<i32>> = LatticeMap::new();
+        m2.insert("b", Max(7));
+        m2.insert("c", Max(3));
+
+        let j = m1.join(&m2);
+
+        // Keys: union of {a,b} and {b,c} = {a,b,c}. Values: pointwise
+        // max.
+        assert_eq!(j.get(&"a"), Some(&Max(1)));
+        assert_eq!(j.get(&"b"), Some(&Max(10))); // max(10, 7)
+        assert_eq!(j.get(&"c"), Some(&Max(3)));
     }
 }
