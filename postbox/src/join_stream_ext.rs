@@ -16,6 +16,32 @@ use futures::StreamExt;
 use crate::join_semilattice::BoundedJoinSemilattice;
 use crate::join_semilattice::JoinSemilattice;
 
+/// Extension trait for folding `Stream`s of lattice values.
+///
+/// This trait is automatically implemented for all `Stream` types and
+/// provides methods to fold/reduce streams using lattice `join`:
+///
+/// - [`join_all_lattice`](JoinStreamExt::join_all_lattice): fold
+///   starting from the first element, returning `None` for empty
+///   streams.
+/// - [`join_all_from_bottom`](JoinStreamExt::join_all_from_bottom):
+///   fold starting from `⊥` (bottom), works even for empty streams.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use futures::stream;
+/// use std::collections::HashSet;
+/// use postbox::join_stream_ext::JoinStreamExt;
+///
+/// let s = stream::iter(vec![
+///     HashSet::from([1, 2]),
+///     HashSet::from([2, 3]),
+///     HashSet::from([4]),
+/// ]);
+/// let result = s.join_all_lattice().await;
+/// assert_eq!(result.unwrap(), HashSet::from([1, 2, 3, 4]));
+/// ```
 #[async_trait]
 pub trait JoinStreamExt: Stream + Sized + Unpin + Send {
     /// Join all items from a (possibly empty) stream.
