@@ -3,6 +3,10 @@
 [![Build and test](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/shayne-fletcher/postbox/actions/workflows/build-and-test.yml)
 [![codecov](https://codecov.io/gh/shayne-fletcher/postbox/branch/main/graph/badge.svg)](https://codecov.io/gh/shayne-fletcher/postbox)
 
+<p align="center">
+  <img src="ottie.jpg" alt="Ottie the Otter - postbox mascot" width="300">
+</p>
+
 Lattice-based state + async cells for Rust.
 
 This workspace contains:
