@@ -11,7 +11,7 @@ echo "Creating favicon from 📬 emoji..."
 # Create SVG with the emoji
 cat > emoji.svg <<'EOF'
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <text y="80" font-size="80">📬</text>
+  <text x="50" y="50" font-size="90" text-anchor="middle" dominant-baseline="middle">📬</text>
 </svg>
 EOF
 
