@@ -39,8 +39,8 @@
 //! ```rust
 //! use postbox::join_semilattice::{JoinSemilattice, Max};
 //!
-//! let x = Max(1);
-//! let y = Max(3);
+//! let x: Max<_> = 1.into();
+//! let y: Max<_> = 3.into();
 //!
 //! // join = max
 //! let z = x.join(&y);
@@ -164,6 +164,12 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> BoundedJoinSemilattice for 
     }
 }
 
+impl<T> From<T> for Max<T> {
+    fn from(value: T) -> Self {
+        Max(value)
+    }
+}
+
 // join = min
 
 /// Newtype wrapper turning an `Ord` type into a **min-semilattice**.
@@ -195,6 +201,12 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> BoundedJoinSemilattice for 
     }
 }
 
+impl<T> From<T> for Min<T> {
+    fn from(value: T) -> Self {
+        Min(value)
+    }
+}
+
 // join = OR (disjunction)
 
 /// Newtype wrapper for `bool` where `join` is logical OR (disjunction).
@@ -213,10 +225,10 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> BoundedJoinSemilattice for 
 /// ```rust
 /// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, Any};
 ///
-/// let x = Any(false);
-/// let y = Any(true);
-/// assert_eq!(x.join(&y), Any(true));
-/// assert_eq!(Any::bottom(), Any(false));
+/// let x: Any = false.into();
+/// let y: Any = true.into();
+/// assert_eq!(x.join(&y), true.into());
+/// assert_eq!(Any::bottom(), false.into());
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Any(pub bool);
@@ -230,6 +242,12 @@ impl JoinSemilattice for Any {
 impl BoundedJoinSemilattice for Any {
     fn bottom() -> Self {
         Any(false)
+    }
+}
+
+impl From<bool> for Any {
+    fn from(value: bool) -> Self {
+        Any(value)
     }
 }
 
@@ -255,10 +273,10 @@ impl BoundedJoinSemilattice for Any {
 /// ```rust
 /// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, All};
 ///
-/// let x = All(true);
-/// let y = All(false);
-/// assert_eq!(x.join(&y), All(false));
-/// assert_eq!(All::bottom(), All(true));
+/// let x: All = true.into();
+/// let y: All = false.into();
+/// assert_eq!(x.join(&y), false.into());
+/// assert_eq!(All::bottom(), true.into());
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct All(pub bool);
@@ -272,6 +290,12 @@ impl JoinSemilattice for All {
 impl BoundedJoinSemilattice for All {
     fn bottom() -> Self {
         All(true)
+    }
+}
+
+impl From<bool> for All {
+    fn from(value: bool) -> Self {
+        All(value)
     }
 }
 
@@ -357,6 +381,12 @@ where
         // For bitflags and integers, `Default` is the empty set (all
         // zeros).
         BitOr(T::default())
+    }
+}
+
+impl<T> From<T> for BitOr<T> {
+    fn from(value: T) -> Self {
+        BitOr(value)
     }
 }
 
@@ -448,6 +478,12 @@ where
         // For bitwise AND, the identity is all bits set (maximum value).
         // This represents the "universal" set in the dual order.
         BitAnd(num_traits::Bounded::max_value())
+    }
+}
+
+impl<T> From<T> for BitAnd<T> {
+    fn from(value: T) -> Self {
+        BitAnd(value)
     }
 }
 
