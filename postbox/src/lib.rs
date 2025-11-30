@@ -20,7 +20,7 @@
 //! - [`lvar`] *(feature = "async")*: an **LVar-style** cell whose
 //!   state only grows by lattice join
 //! - [`propagator`] *(feature = "async")*: **propagator networks** for
-//!   monotonic computation with lattice-valued cells
+//!   accumulative computation with semigroup-valued cells
 //! - [`join_stream_ext`] *(feature = "async")*: stream adapters to
 //!   fold `Stream<Item = L>` by lattice join
 //! - [`mvar`] *(feature = "async")*: a classic **MVar** (single-slot

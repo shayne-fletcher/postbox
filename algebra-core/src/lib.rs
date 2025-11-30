@@ -53,6 +53,10 @@
 //! - **[`BTreeSet<T>`](std::collections::BTreeSet)**: `JoinSemilattice`,
 //!   `BoundedJoinSemilattice`, `Semigroup`, `Monoid`, `CommutativeMonoid`
 //!
+//! ### Strings (concatenation)
+//!
+//! - **[`String`](String)**: `Semigroup`, `Monoid`
+//!
 //! ### Optional values (lifted monoid/lattice)
 //!
 //! - **[`Option<M>`](Option)** (where `M: Semigroup + Clone`): `Semigroup`
@@ -416,6 +420,22 @@ impl<T: Ord + Clone> Monoid for BTreeSet<T> {
 }
 
 impl<T: Ord + Clone> CommutativeMonoid for BTreeSet<T> {}
+
+// String: combine = concatenation
+
+impl Semigroup for String {
+    fn combine(&self, other: &Self) -> Self {
+        let mut result = self.clone();
+        result.push_str(other);
+        result
+    }
+}
+
+impl Monoid for String {
+    fn empty() -> Self {
+        String::new()
+    }
+}
 
 // Option: lifted lattice
 

@@ -352,10 +352,88 @@ fn multi_iteration_example() {
     println!("Value propagated from a to e through the chain");
 }
 
+// ============================================================
+// Example 4: Non-lattice semigroups (String concatenation)
+// ============================================================
+//
+// WHAT IT DEMONSTRATES:
+// - Propagator networks work with ANY semigroup, not just lattices
+// - String concatenation is a semigroup but NOT a lattice:
+//   * No partial order (can't compare strings by ≤)
+//   * Not idempotent (s + s ≠ s)
+// - This validates the Semigroup generalization
+//
+// HOW IT WORKS:
+// - Creates String cells (messages)
+// - Propagators concatenate strings together
+// - Unlike lattices, values keep growing (not idempotent)
+//
+// WHAT WE LEARN:
+// - The accumulation model works for non-lattice semigroups
+// - This is exactly how gradients accumulate in autodiff (addition, not max/union)
+// - Opens the door to general algebraic computation beyond lattices
+
+fn non_lattice_example() {
+    println!("=== Non-Lattice Semigroup Example ===");
+    println!("String concatenation: semigroup but not a lattice\n");
+
+    let mut net = Network::new();
+
+    // Create message cells
+    let greeting = net.add_cell(String::from("Hello"));
+    let punctuation = net.add_cell(String::from("!"));
+    let message = net.add_cell(String::new());
+
+    struct ConcatProp {
+        source1: CellId<String>,
+        source2: CellId<String>,
+        target: CellId<String>,
+    }
+
+    impl Propagator for ConcatProp {
+        fn activate(&mut self, network: &mut Network) {
+            let s1 = network.read(self.source1).clone();
+            let s2 = network.read(self.source2).clone();
+            let result = s1.combine(&s2);
+            network.merge(self.target, result);
+        }
+    }
+
+    let mut concat_prop = ConcatProp {
+        source1: greeting,
+        source2: punctuation,
+        target: message,
+    };
+
+    println!("Initial state:");
+    println!("  greeting = {:?}", net.read(greeting));
+    println!("  punctuation = {:?}", net.read(punctuation));
+    println!("  message = {:?}\n", net.read(message));
+
+    concat_prop.activate(&mut net);
+
+    println!("After concatenation:");
+    println!("  message = {:?}\n", net.read(message));
+
+    // Unlike lattices, repeated accumulation keeps growing
+    net.merge(greeting, String::from(", World"));
+    concat_prop.activate(&mut net);
+
+    println!("After updating greeting:");
+    println!("  greeting = {:?}", net.read(greeting));
+    println!("  message = {:?}\n", net.read(message));
+
+    println!("Note: This is NOT idempotent like lattices.");
+    println!("      Each merge adds more to the string.");
+    println!("      This is exactly how gradient accumulation works!");
+}
+
 fn main() {
     homogeneous_example();
     println!("\n{}\n", "=".repeat(50));
     heterogeneous_example();
     println!("\n{}\n", "=".repeat(50));
     multi_iteration_example();
+    println!("\n{}\n", "=".repeat(50));
+    non_lattice_example();
 }

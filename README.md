@@ -75,7 +75,7 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - 📬 `MVar<T>`: classic single-slot async cell (not monotone)
 
 ### Propagator networks (from `postbox`):
-- 🔄 Monotonic computation with semigroup-valued cells
+- 🔄 Accumulative computation with semigroup-valued cells
 - Works with any semigroup: lattices (Max, HashSet), gradients (addition), or custom algebras
 - Type-safe heterogeneous networks via `CellId<S>`
 - Sync and async support

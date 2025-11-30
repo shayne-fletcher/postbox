@@ -37,7 +37,7 @@
 //! ## Status
 //!
 //! This module is under active development. Core types and traits are
-//! curretly getting defined.
+//! currently defined.
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -150,20 +150,22 @@ impl<S> CellId<S> {
 
 /// A cell holding a semigroup value of type `S`.
 ///
-/// Cells store values that accumulate via the semigroup's `combine` operation.
-/// Updates never replace - they merge with existing values via `old.combine(new)`.
-/// When a cell's value changes, dependent propagators are notified
-/// (dependency tracking to be added).
+/// Cells store values that accumulate via the semigroup's `combine`
+/// operation. Updates never replace - they merge with existing values
+/// via `old.combine(new)`. When a cell's value changes, dependent
+/// propagators are notified (dependency tracking to be added).
 ///
 /// # Accumulation invariant
 ///
-/// The key invariant: values accumulate, never replace. If you merge a value `v`
-/// into a cell holding `current`, the new value is `current.combine(v)`.
-/// Since combine is associative, the order of merges doesn't affect
-/// convergence - the cell will reach the same final value regardless.
+/// The key invariant: values accumulate, never replace. If you merge
+/// a value `v` into a cell holding `current`, the new value is
+/// `current.combine(v)`. Since combine is associative, the order of
+/// merges doesn't affect convergence - the cell will reach the same
+/// final value regardless.
 ///
-/// For lattices, this is **monotonic growth** (values increase in partial order).
-/// For general semigroups, this is **one-way accumulation** (e.g., concatenation).
+/// For lattices, this is **monotonic growth** (values increase in
+/// partial order). For general semigroups, this is **one-way
+/// accumulation** (e.g., concatenation).
 ///
 /// # Example
 ///
@@ -220,7 +222,8 @@ impl<S: Semigroup> Cell<S> {
         &self.value
     }
 
-    /// Merge a new value into the cell via the semigroup combine operation.
+    /// Merge a new value into the cell via the semigroup combine
+    /// operation.
     ///
     /// Returns `true` if the cell's value changed, `false` if it
     /// remained the same. A change indicates that the new value added
@@ -252,12 +255,14 @@ impl<S: Semigroup> Cell<S> {
     }
 }
 
-/// A propagator network containing cells with heterogeneous semigroup types.
+/// A propagator network containing cells with heterogeneous semigroup
+/// types.
 ///
-/// Networks store cells in a type-erased container (`Box<dyn Any>`) while
-/// maintaining type safety through [`CellId<S>`]. This allows a single network
-/// to contain cells of different types (e.g., `Cell<Max<i32>>`, `Cell<HashSet<String>>`,
-/// etc.) without requiring all cells to share a common trait object type.
+/// Networks store cells in a type-erased container (`Box<dyn Any>`)
+/// while maintaining type safety through [`CellId<S>`]. This allows a
+/// single network to contain cells of different types (e.g.,
+/// `Cell<Max<i32>>`, `Cell<HashSet<String>>`, etc.) without requiring
+/// all cells to share a common trait object type.
 ///
 /// # Type Erasure
 ///
@@ -265,9 +270,10 @@ impl<S: Semigroup> Cell<S> {
 /// - **Storage**: Cells stored as `Box<dyn Any>` (heterogeneous)
 /// - **API**: `CellId<S>` carries type information (type-safe)
 ///
-/// When you create a cell, you get back a `CellId<S>` that remembers the type.
-/// When you access the cell, the network uses the type from `CellId<S>` to
-/// safely downcast from `Any` back to the concrete type.
+/// When you create a cell, you get back a `CellId<S>` that remembers
+/// the type. When you access the cell, the network uses the type from
+/// `CellId<S>` to safely downcast from `Any` back to the concrete
+/// type.
 ///
 /// # Example
 ///
@@ -317,8 +323,9 @@ impl Network {
 
     /// Add a new cell to the network with an initial value.
     ///
-    /// Returns a typed `CellId<S>` that can be used to access this cell.
-    /// The type parameter `S` is inferred from the initial value.
+    /// Returns a typed `CellId<S>` that can be used to access this
+    /// cell. The type parameter `S` is inferred from the initial
+    /// value.
     ///
     /// # Example
     ///
@@ -343,7 +350,8 @@ impl Network {
     /// # Panics
     ///
     /// Panics if the cell ID is invalid or if there's a type mismatch
-    /// (which should be impossible if you only use `CellId`s returned by this network).
+    /// (which should be impossible if you only use `CellId`s returned
+    /// by this network).
     ///
     /// # Example
     ///
@@ -366,11 +374,13 @@ impl Network {
     /// Merge a value into a cell via semigroup combine.
     ///
     /// Returns `true` if the cell's value changed, `false` otherwise.
-    /// A change means the new value added information (combine produced a new value).
+    /// A change means the new value added information (combine
+    /// produced a new value).
     ///
     /// # Panics
     ///
-    /// Panics if the cell ID is invalid or if there's a type mismatch.
+    /// Panics if the cell ID is invalid or if there's a type
+    /// mismatch.
     ///
     /// # Example
     ///
@@ -385,11 +395,7 @@ impl Network {
     /// assert!(!net.merge(cell, Max(7)));   // unchanged: 10 → 10
     /// assert_eq!(net.read(cell), &Max(10));
     /// ```
-    pub fn merge<S: Semigroup + PartialEq + 'static>(
-        &mut self,
-        id: CellId<S>,
-        value: S,
-    ) -> bool {
+    pub fn merge<S: Semigroup + PartialEq + 'static>(&mut self, id: CellId<S>, value: S) -> bool {
         self.cells
             .get_mut(&id.raw())
             .expect("cell not found")
@@ -407,23 +413,27 @@ impl Default for Network {
 
 /// A propagator that performs accumulative computation on a network.
 ///
-/// Propagators are functions that read values from cells and write values to cells.
-/// When activated, a propagator reads its input cells, performs some computation,
-/// and merges the result into output cells. Since all updates accumulate via
-/// semigroup combine (never replace), the order of propagator activations doesn't
+/// Propagators are functions that read values from cells and write
+/// values to cells. When activated, a propagator reads its input
+/// cells, performs some computation, and merges the result into
+/// output cells. Since all updates accumulate via semigroup combine
+/// (never replace), the order of propagator activations doesn't
 /// affect the final result.
 ///
 /// # Compatibility requirement
 ///
-/// Propagators must be **compatible with accumulation**: if inputs accumulate more
-/// information, outputs should accumulate compatible information.
+/// Propagators must be **compatible with accumulation**: if inputs
+/// accumulate more information, outputs should accumulate compatible
+/// information.
 ///
-/// - For lattices: this means **monotonic** functions (inputs grow ⇒ outputs grow)
-/// - For general semigroups: this means **accumulation-preserving** functions
-///   (e.g., gradient propagation preserves addition structure)
+/// - For lattices: this means **monotonic** functions (inputs grow ⇒
+///   outputs grow)
+/// - For general semigroups: this means **accumulation-preserving**
+///   functions (e.g., gradient propagation preserves addition
+///   structure)
 ///
-/// This ensures that the network converges to a unique fixed point regardless of
-/// execution order.
+/// This ensures that the network converges to a unique fixed point
+/// regardless of execution order.
 ///
 /// # Example
 ///
@@ -459,11 +469,20 @@ impl Default for Network {
 /// assert_eq!(net.read(c), &Max(10)); // max(5, 10) = 10
 /// ```
 pub trait Propagator {
-    /// Activate this propagator, reading from and writing to the network.
+    /// Activate this propagator, reading from and writing to the
+    /// network.
     ///
-    /// The propagator reads values from input cells, performs computation,
-    /// and merges results into output cells. This method should be idempotent
-    /// (calling it multiple times with the same cell values produces the same result).
+    /// The propagator reads values from input cells, performs
+    /// computation, and merges results into output cells via the
+    /// semigroup's `combine` operation.
+    ///
+    /// **Important:** The propagator should compute a deterministic
+    /// function of its inputs. The effect of repeated activation
+    /// depends on the semigroup:
+    /// - For idempotent semigroups (lattices): repeated calls with
+    ///   unchanged inputs have no effect
+    /// - For non-idempotent semigroups (String, gradients): repeated
+    ///   calls keep accumulating
     fn activate(&mut self, network: &mut Network);
 }
 
@@ -551,9 +570,9 @@ mod tests {
         let mut net = Network::new();
         let cell = net.add_cell(Max(5));
 
-        assert!(net.merge(cell, Max(10)));  // changed
-        assert!(!net.merge(cell, Max(7)));  // unchanged
-        assert!(net.merge(cell, Max(15)));  // changed
+        assert!(net.merge(cell, Max(10))); // changed
+        assert!(!net.merge(cell, Max(7))); // unchanged
+        assert!(net.merge(cell, Max(15))); // changed
     }
 
     #[test]
@@ -576,6 +595,66 @@ mod tests {
         let net = Network::new();
         let fake_id: CellId<Max<i32>> = CellId::new(999);
         net.read(fake_id); // Should panic
+    }
+
+    // Test that non-lattice semigroups work (String concatenation)
+    #[test]
+    fn network_string_concatenation() {
+        let mut net = Network::new();
+
+        // String is a Semigroup (concatenation) but NOT a lattice
+        // (no partial order, no idempotency)
+        let cell = net.add_cell(String::from("Hello"));
+
+        // Each merge concatenates
+        assert!(net.merge(cell, String::from(", ")));
+        assert_eq!(net.read(cell), "Hello, ");
+
+        assert!(net.merge(cell, String::from("World")));
+        assert_eq!(net.read(cell), "Hello, World");
+
+        // Note: Unlike lattices, repeated merges keep accumulating
+        assert!(net.merge(cell, String::from("!")));
+        assert_eq!(net.read(cell), "Hello, World!");
+    }
+
+    // Test gradient-like accumulation (Vec with element-wise addition)
+    #[test]
+    fn network_vector_addition() {
+        // Wrapper for Vec<f64> with element-wise addition as Semigroup
+        #[derive(Debug, Clone, PartialEq)]
+        struct Gradient(Vec<f64>);
+
+        impl algebra_core::Semigroup for Gradient {
+            fn combine(&self, other: &Self) -> Self {
+                assert_eq!(
+                    self.0.len(),
+                    other.0.len(),
+                    "gradient dimensions must match"
+                );
+                Gradient(
+                    self.0
+                        .iter()
+                        .zip(other.0.iter())
+                        .map(|(a, b)| a + b)
+                        .collect(),
+                )
+            }
+        }
+
+        let mut net = Network::new();
+        let grad_cell = net.add_cell(Gradient(vec![0.0, 0.0, 0.0]));
+
+        // Accumulate gradients (like backprop)
+        assert!(net.merge(grad_cell, Gradient(vec![1.0, 2.0, 3.0])));
+        assert_eq!(net.read(grad_cell).0, vec![1.0, 2.0, 3.0]);
+
+        assert!(net.merge(grad_cell, Gradient(vec![0.5, 1.0, 1.5])));
+        assert_eq!(net.read(grad_cell).0, vec![1.5, 3.0, 4.5]);
+
+        // This is how gradient accumulation would work in autodiff
+        assert!(net.merge(grad_cell, Gradient(vec![0.1, 0.2, 0.3])));
+        assert_eq!(net.read(grad_cell).0, vec![1.6, 3.2, 4.8]);
     }
 
     // Example: A small propagator network that computes relationships
