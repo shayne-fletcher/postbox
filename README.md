@@ -30,8 +30,12 @@ The `postbox` crate re-exports all traits from `algebra-core`, so you can use ev
 
 ## Features
 
-### Core traits & helpers (from `algebra-core`):
-- `JoinSemilattice` and `BoundedJoinSemilattice` traits
+### Core traits (from `algebra-core`):
+- `Semigroup`, `Monoid`, `CommutativeMonoid`: basic algebraic structures
+- `Group`, `AbelianGroup`: invertible algebraic structures
+- `JoinSemilattice`, `BoundedJoinSemilattice`: lattice traits
+
+### Lattice types (from `postbox`):
 - `Max<T>`, `Min<T>`: lattice wrappers for max/min
 - `Any`, `All`: boolean lattices (OR/AND)
 - `BitOr<T>`, `BitAnd<T>`: bitwise lattices for bitflags and integer masks (OR/AND)
