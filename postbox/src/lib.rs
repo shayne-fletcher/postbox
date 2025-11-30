@@ -32,6 +32,34 @@
 //! - If a bottom element ⊥ exists, implement
 //!   [`BoundedJoinSemilattice`] so you can fold from empty.
 //!
+//! ## Features
+//!
+//! This crate has several optional features (all enabled by default):
+//!
+//! - **`async`** *(enabled by default)*: Enables async/await support,
+//!   including:
+//!   - [`lvar::LVar`]: monotone lattice variables with async waiting
+//!   - [`mvar::MVar`]: classic single-slot async cells
+//!   - [`join_stream_ext`]: stream folding with lattice join
+//!   - Requires `tokio` and `futures` dependencies
+//!
+//! - **`derive`** *(enabled by default)*: Provides derive macros for
+//!   automatic trait implementations:
+//!   - `#[derive(JoinSemilattice)]`: derive join from field-wise
+//!     joins
+//!   - `#[derive(BoundedJoinSemilattice)]`: derive bottom from
+//!     field-wise bottoms
+//!
+//! - **`bitflags`** *(enabled by default)*: Adds support for using
+//!   [`BitOr`](join_semilattice::BitOr) with types from the
+//!   `bitflags` crate
+//!   - Enables testing and documentation for bitflags integration
+//!
+//! To use only the core lattice types without async or derives:
+//! ```toml
+//! postbox = { version = "…", default-features = false }
+//! ```
+//!
 //! ## Quick start
 //! ```rust
 //! use std::collections::HashSet;
@@ -46,7 +74,7 @@
 //! assert!(HashSet::<i32>::bottom().is_empty());
 //! ```
 //!
-//! ### Async (enable the `async` feature)
+//! ### Async example
 //! ```toml
 //! postbox = { version = "…", features = ["async"] }
 //! ```
