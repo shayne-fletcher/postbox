@@ -923,11 +923,10 @@ mod tests {
     mod derive_tests {
         use super::*;
 
-        use crate::join_semilattice::BoundedJoinSemilattice;
-        use crate::join_semilattice::JoinSemilattice;
-
-        use postbox_derive::BoundedJoinSemilattice;
-        use postbox_derive::JoinSemilattice;
+        // Import traits and derive macros from crate root
+        // (traits and macros are in different namespaces, so no conflict)
+        use crate::BoundedJoinSemilattice;
+        use crate::JoinSemilattice;
 
         #[derive(Debug, Clone, PartialEq, Eq, JoinSemilattice, BoundedJoinSemilattice)]
         struct Foo {

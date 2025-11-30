@@ -547,6 +547,13 @@ impl_product_monoid!(A:0, B:1);
 impl_product_monoid!(A:0, B:1, C:2);
 impl_product_monoid!(A:0, B:1, C:2, D:3);
 
+// Re-export derive macros when derive feature is enabled
+#[cfg(feature = "derive")]
+pub use algebra_core_derive::{
+    AbelianGroup, BoundedJoinSemilattice, CommutativeMonoid, Group, JoinSemilattice, Monoid,
+    Semigroup,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;

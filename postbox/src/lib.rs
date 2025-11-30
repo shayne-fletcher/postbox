@@ -123,11 +123,7 @@ pub mod join_stream_ext;
 /// monotone.
 pub mod mvar;
 
-// Re-export the traits
+// Re-export the traits (and derive macros when derive feature is enabled)
+// The derive macros come from algebra_core, which re-exports them from algebra-core-derive
 pub use join_semilattice::BoundedJoinSemilattice;
 pub use join_semilattice::JoinSemilattice;
-
-// Re-export derive macros when the feature is enabled
-#[cfg(feature = "derive")]
-pub use postbox_derive::BoundedJoinSemilattice;
-pub use postbox_derive::JoinSemilattice;

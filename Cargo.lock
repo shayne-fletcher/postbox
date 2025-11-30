@@ -5,6 +5,18 @@ version = 4
 [[package]]
 name = "algebra-core"
 version = "0.1.0"
+dependencies = [
+ "algebra-core-derive",
+]
+
+[[package]]
+name = "algebra-core-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "async-trait"
@@ -154,17 +166,7 @@ dependencies = [
  "bitflags",
  "futures",
  "num-traits",
- "postbox_derive",
  "tokio",
-]
-
-[[package]]
-name = "postbox_derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

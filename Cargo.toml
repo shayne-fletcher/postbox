@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "algebra-core",
+    "algebra-core-derive",
     "postbox",
-    "postbox_derive",
 ]
 resolver = "2"

@@ -10,13 +10,12 @@ readme = "README.md"
 [features]
 default = ["async", "derive", "bitflags"]
 async = ["tokio", "futures", "async-trait"]
-derive = ["postbox_derive"]
+derive = ["algebra-core/derive"]
 bitflags = ["dep:bitflags"]
 
 [dependencies]
 algebra-core = { version = "0.1", path = "../algebra-core" }
 num-traits = "0.2"
-postbox_derive = { path = "../postbox_derive", optional = true }
 # Async + streams
 tokio       = { version = "1.48", default-features = false, features = ["sync","time","macros","rt-multi-thread"], optional = true }
 futures     = { version = "0.3", optional = true }

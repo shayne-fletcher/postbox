@@ -154,8 +154,8 @@ jobs:
               <p>Lattice-based state library: concrete lattice types, LVars, MVars, CRDTs, and stream extensions built on algebra-core.</p>
             </li>
             <li>
-              <h2><a href="postbox_derive/index.html">postbox_derive</a></h2>
-              <p>Derive macros for automatically implementing join-semilattice traits.</p>
+              <h2><a href="algebra_core_derive/index.html">algebra-core-derive</a></h2>
+              <p>Derive macros for automatically implementing algebraic traits.</p>
             </li>
           </ul>
         </body>

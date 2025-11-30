@@ -9,7 +9,9 @@ readme = "README.md"
 
 [features]
 default = []
+derive = ["algebra-core-derive"]
 
 [dependencies]
+algebra-core-derive = { path = "../algebra-core-derive", optional = true }
 
 [dev-dependencies]

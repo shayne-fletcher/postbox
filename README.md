@@ -7,8 +7,8 @@ Lattice-based state + async cells for Rust.
 
 This workspace contains:
 - **`algebra-core`**: Core algebraic abstractions (Semigroup, Monoid, Group, Semilattice)
+- **`algebra-core-derive`**: Derive macros for algebraic traits
 - **`postbox`**: Lattice-based state, LVars, MVars, and CRDTs built on algebra-core
-- **`postbox_derive`**: Derive macros for lattice traits
 
 **Core traits & helpers:**
 - `JoinSemilattice` and `BoundedJoinSemilattice` traits
