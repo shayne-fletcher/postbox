@@ -16,6 +16,8 @@
 //!
 //! - [`crate::join_semilattice::Max`] / [`crate::join_semilattice::Min`]:
 //!   wrapper types where `join` is `max` / `min` on the inner value.
+//! - [`crate::join_semilattice::Any`] / [`crate::join_semilattice::All`]:
+//!   boolean lattices where `join` is `||` (OR) / `&&` (AND).
 //! - [`std::collections::HashSet`], [`std::collections::BTreeSet`]:
 //!   sets with `join = union` and bottom = empty set.
 //! - [`crate::join_semilattice::LatticeMap`]:
@@ -188,6 +190,86 @@ impl<T: Ord + Clone> JoinSemilattice for Min<T> {
 impl<T: Ord + Clone + Default + num_traits::Bounded> BoundedJoinSemilattice for Min<T> {
     fn bottom() -> Self {
         Min(num_traits::Bounded::max_value())
+    }
+}
+
+// join = OR (disjunction)
+
+/// Newtype wrapper for `bool` where `join` is logical OR (disjunction).
+///
+/// `Any(bool)` forms a join-semilattice under the natural boolean order
+/// (false < true):
+///
+/// - `Any(a).join(&Any(b)) == Any(a || b)`
+/// - Bottom element is `Any(false)`
+///
+/// This is useful for combining boolean flags where "any true means true",
+/// such as error flags, presence checks, or monitoring conditions.
+///
+/// # Example
+///
+/// ```rust
+/// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, Any};
+///
+/// let x = Any(false);
+/// let y = Any(true);
+/// assert_eq!(x.join(&y), Any(true));
+/// assert_eq!(Any::bottom(), Any(false));
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Any(pub bool);
+
+impl JoinSemilattice for Any {
+    fn join(&self, other: &Self) -> Self {
+        Any(self.0 || other.0)
+    }
+}
+
+impl BoundedJoinSemilattice for Any {
+    fn bottom() -> Self {
+        Any(false)
+    }
+}
+
+// join = AND (conjunction, dual order)
+
+/// Newtype wrapper for `bool` where `join` is logical AND (conjunction).
+///
+/// `All(bool)` forms a join-semilattice under the dual boolean order
+/// (true < false):
+///
+/// - `All(a).join(&All(b)) == All(a && b)`
+/// - Bottom element is `All(true)`
+///
+/// This is useful for combining boolean conditions where "all must be
+/// true", such as validation checks, preconditions, or invariants.
+///
+/// Note: The dual order may seem counterintuitive, but it makes `AND`
+/// the join operation (least upper bound). This mirrors how [`Min`]
+/// uses the dual order to make `min` the join.
+///
+/// # Example
+///
+/// ```rust
+/// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, All};
+///
+/// let x = All(true);
+/// let y = All(false);
+/// assert_eq!(x.join(&y), All(false));
+/// assert_eq!(All::bottom(), All(true));
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct All(pub bool);
+
+impl JoinSemilattice for All {
+    fn join(&self, other: &Self) -> Self {
+        All(self.0 && other.0)
+    }
+}
+
+impl BoundedJoinSemilattice for All {
+    fn bottom() -> Self {
+        All(true)
     }
 }
 
@@ -693,5 +775,51 @@ mod tests {
         assert_eq!(j.get(&"a"), Some(&Max(1)));
         assert_eq!(j.get(&"b"), Some(&Max(10))); // max(10, 7)
         assert_eq!(j.get(&"c"), Some(&Max(3)));
+    }
+
+    #[test]
+    fn any_join_is_or() {
+        // join = OR
+        assert_eq!(Any(false).join(&Any(false)), Any(false));
+        assert_eq!(Any(false).join(&Any(true)), Any(true));
+        assert_eq!(Any(true).join(&Any(false)), Any(true));
+        assert_eq!(Any(true).join(&Any(true)), Any(true));
+    }
+
+    #[test]
+    fn any_bottom_is_false() {
+        assert_eq!(Any::bottom(), Any(false));
+        // false is the identity for OR
+        assert_eq!(Any(false).join(&Any(true)), Any(true));
+        assert_eq!(Any(true).join(&Any(false)), Any(true));
+    }
+
+    #[test]
+    fn any_is_idempotent() {
+        assert_eq!(Any(false).join(&Any(false)), Any(false));
+        assert_eq!(Any(true).join(&Any(true)), Any(true));
+    }
+
+    #[test]
+    fn all_join_is_and() {
+        // join = AND
+        assert_eq!(All(false).join(&All(false)), All(false));
+        assert_eq!(All(false).join(&All(true)), All(false));
+        assert_eq!(All(true).join(&All(false)), All(false));
+        assert_eq!(All(true).join(&All(true)), All(true));
+    }
+
+    #[test]
+    fn all_bottom_is_true() {
+        assert_eq!(All::bottom(), All(true));
+        // true is the identity for AND
+        assert_eq!(All(true).join(&All(false)), All(false));
+        assert_eq!(All(false).join(&All(true)), All(false));
+    }
+
+    #[test]
+    fn all_is_idempotent() {
+        assert_eq!(All(false).join(&All(false)), All(false));
+        assert_eq!(All(true).join(&All(true)), All(true));
     }
 }
