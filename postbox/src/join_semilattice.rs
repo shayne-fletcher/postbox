@@ -18,8 +18,8 @@
 //!   wrapper types where `join` is `max` / `min` on the inner value.
 //! - [`crate::join_semilattice::Any`] / [`crate::join_semilattice::All`]:
 //!   boolean lattices where `join` is `||` (OR) / `&&` (AND).
-//! - [`crate::join_semilattice::BitOr`]:
-//!   bitwise OR lattice for bitflags and integer masks.
+//! - [`crate::join_semilattice::BitOr`] / [`crate::join_semilattice::BitAnd`]:
+//!   bitwise lattices for bitflags and integer masks (OR / AND).
 //! - [`std::collections::HashSet`], [`std::collections::BTreeSet`]:
 //!   sets with `join = union` and bottom = empty set.
 //! - [`crate::join_semilattice::LatticeMap`]:
@@ -357,6 +357,97 @@ where
         // For bitflags and integers, `Default` is the empty set (all
         // zeros).
         BitOr(T::default())
+    }
+}
+
+// join = bitwise AND
+
+/// Lattice wrapper for bitflags and integers with join = bitwise AND.
+///
+/// `BitAnd<T>` wraps any type implementing [`std::ops::BitAnd`] and
+/// treats bitwise AND as the join operation. This represents the dual
+/// lattice to [`BitOr`]:
+///
+/// - **Integers**: tracks which bits remain set across all values
+/// - **Bitflags**: tracks which flags are present in all instances
+///
+/// The induced partial order is superset-of-bits (dual to [`BitOr`]):
+/// `x ≤ y` iff `x & y == x`.
+///
+/// - `join = &` (bitwise AND)
+/// - Bottom element is all bits set (the "universal" value)
+///
+/// This is useful for tracking invariants that must hold across all
+/// replicas, or computing the intersection of flag sets.
+///
+/// # Examples
+///
+/// ## With integers
+///
+/// ```rust
+/// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, BitAnd};
+///
+/// let x = BitAnd(0b1111u8);
+/// let y = BitAnd(0b1010u8);
+/// assert_eq!(x.join(&y), BitAnd(0b1010u8));
+/// assert_eq!(BitAnd::<u8>::bottom(), BitAnd(0xFF));
+/// ```
+///
+/// ## With bitflags
+///
+/// ```rust
+/// # #[cfg(feature = "bitflags")] {
+/// use bitflags::bitflags;
+/// use postbox::join_semilattice::{JoinSemilattice, BitAnd};
+///
+/// bitflags! {
+///     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///     struct Flags: u32 {
+///         const A = 0b001;
+///         const B = 0b010;
+///         const C = 0b100;
+///     }
+/// }
+///
+/// impl Flags {
+///     const fn all_flags() -> Self {
+///         Self::from_bits_truncate(0b111)
+///     }
+/// }
+///
+/// let x = BitAnd(Flags::A | Flags::B | Flags::C);
+/// let y = BitAnd(Flags::A | Flags::B);
+/// let joined = x.join(&y);
+/// assert_eq!(joined.0, Flags::A | Flags::B);
+/// # }
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BitAnd<T>(pub T);
+
+impl<T> BitAnd<T> {
+    /// Extract the underlying value.
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> JoinSemilattice for BitAnd<T>
+where
+    T: Copy + std::ops::BitAnd<Output = T>,
+{
+    fn join(&self, other: &Self) -> Self {
+        BitAnd(self.0 & other.0)
+    }
+}
+
+impl<T> BoundedJoinSemilattice for BitAnd<T>
+where
+    T: Copy + std::ops::BitAnd<Output = T> + num_traits::Bounded,
+{
+    fn bottom() -> Self {
+        // For bitwise AND, the identity is all bits set (maximum value).
+        // This represents the "universal" set in the dual order.
+        BitAnd(num_traits::Bounded::max_value())
     }
 }
 
@@ -958,6 +1049,62 @@ mod tests {
         assert_eq!(x.into_inner(), 0b1010u8);
     }
 
+    #[test]
+    fn bitand_join_is_bitwise_and() {
+        // u8 example
+        let x = BitAnd(0b1111u8);
+        let y = BitAnd(0b1010u8);
+        assert_eq!(x.join(&y), BitAnd(0b1010u8));
+
+        // u16 example
+        let a = BitAnd(0xFF00u16);
+        let b = BitAnd(0xF0F0u16);
+        assert_eq!(a.join(&b), BitAnd(0xF000u16));
+    }
+
+    #[test]
+    fn bitand_bottom_is_all_bits_set() {
+        assert_eq!(BitAnd::<u8>::bottom(), BitAnd(0xFF));
+        assert_eq!(BitAnd::<u16>::bottom(), BitAnd(0xFFFF));
+        assert_eq!(BitAnd::<u32>::bottom(), BitAnd(0xFFFFFFFF));
+        assert_eq!(BitAnd::<u64>::bottom(), BitAnd(0xFFFFFFFFFFFFFFFF));
+    }
+
+    #[test]
+    fn bitand_is_idempotent() {
+        let x = BitAnd(0b1010u8);
+        assert_eq!(x.join(&x), x);
+    }
+
+    #[test]
+    fn bitand_is_commutative() {
+        let x = BitAnd(0b1100u8);
+        let y = BitAnd(0b1010u8);
+        assert_eq!(x.join(&y), y.join(&x));
+    }
+
+    #[test]
+    fn bitand_is_associative() {
+        let x = BitAnd(0b1111u8);
+        let y = BitAnd(0b1100u8);
+        let z = BitAnd(0b1010u8);
+        assert_eq!(x.join(&y).join(&z), x.join(&y.join(&z)));
+    }
+
+    #[test]
+    fn bitand_into_inner() {
+        let x = BitAnd(0b1010u8);
+        assert_eq!(x.into_inner(), 0b1010u8);
+    }
+
+    #[test]
+    fn bitand_bottom_is_identity() {
+        let x = BitAnd(0b1010u8);
+        let bottom = BitAnd::<u8>::bottom();
+        assert_eq!(bottom.join(&x), x);
+        assert_eq!(x.join(&bottom), x);
+    }
+
     #[cfg(all(test, feature = "bitflags"))]
     mod bitflags_tests {
         use super::*;
@@ -995,6 +1142,35 @@ mod tests {
             // Bottom is identity
             assert_eq!(bottom.join(&x), x);
             assert_eq!(x.join(&bottom), x);
+        }
+
+        #[test]
+        fn bitand_works_with_bitflags() {
+            bitflags! {
+                #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+                struct TestFlags: u32 {
+                    const FLAG_A = 0b0001;
+                    const FLAG_B = 0b0010;
+                    const FLAG_C = 0b0100;
+                    const FLAG_D = 0b1000;
+                }
+            }
+
+            let x = BitAnd(TestFlags::FLAG_A | TestFlags::FLAG_B | TestFlags::FLAG_C);
+            let y = BitAnd(TestFlags::FLAG_A | TestFlags::FLAG_B);
+            let z = x.join(&y);
+
+            // Intersection: only flags present in both
+            assert_eq!(z.0, TestFlags::FLAG_A | TestFlags::FLAG_B);
+            assert!(z.0.contains(TestFlags::FLAG_A));
+            assert!(z.0.contains(TestFlags::FLAG_B));
+            assert!(!z.0.contains(TestFlags::FLAG_C));
+            assert!(!z.0.contains(TestFlags::FLAG_D));
+
+            // Joining with all flags gives the intersection
+            let all_flags = BitAnd(TestFlags::all());
+            assert_eq!(all_flags.join(&x), x);
+            assert_eq!(x.join(&all_flags), x);
         }
     }
 }
