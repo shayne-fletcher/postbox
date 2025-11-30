@@ -14,6 +14,7 @@ derive = ["postbox_derive"]
 bitflags = ["dep:bitflags"]
 
 [dependencies]
+algebra-core = { version = "0.1", path = "../../algebra-core/algebra-core" }
 num-traits = "0.2"
 postbox_derive = { path = "../postbox_derive", optional = true }
 # Async + streams

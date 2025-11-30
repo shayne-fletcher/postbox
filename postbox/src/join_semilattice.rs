@@ -170,6 +170,33 @@ impl<T> From<T> for Max<T> {
     }
 }
 
+// algebra-core trait implementations for Max
+
+impl<T: Ord + Clone> algebra_core::Semigroup for Max<T> {
+    fn combine(&self, other: &Self) -> Self {
+        self.join(other)
+    }
+
+    fn combine_assign(&mut self, other: &Self) {
+        self.join_assign(other);
+    }
+}
+
+impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Max<T> {
+    fn empty() -> Self {
+        Self::bottom()
+    }
+
+    fn concat<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        Self::join_all_from_bottom(iter)
+    }
+}
+
+impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::CommutativeMonoid for Max<T> {}
+
 // join = min
 
 /// Newtype wrapper turning an `Ord` type into a **min-semilattice**.
@@ -206,6 +233,33 @@ impl<T> From<T> for Min<T> {
         Min(value)
     }
 }
+
+// algebra-core trait implementations for Min
+
+impl<T: Ord + Clone> algebra_core::Semigroup for Min<T> {
+    fn combine(&self, other: &Self) -> Self {
+        self.join(other)
+    }
+
+    fn combine_assign(&mut self, other: &Self) {
+        self.join_assign(other);
+    }
+}
+
+impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Min<T> {
+    fn empty() -> Self {
+        Self::bottom()
+    }
+
+    fn concat<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        Self::join_all_from_bottom(iter)
+    }
+}
+
+impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::CommutativeMonoid for Min<T> {}
 
 // join = OR (disjunction)
 
@@ -250,6 +304,33 @@ impl From<bool> for Any {
         Any(value)
     }
 }
+
+// algebra-core trait implementations for Any
+
+impl algebra_core::Semigroup for Any {
+    fn combine(&self, other: &Self) -> Self {
+        self.join(other)
+    }
+
+    fn combine_assign(&mut self, other: &Self) {
+        self.join_assign(other);
+    }
+}
+
+impl algebra_core::Monoid for Any {
+    fn empty() -> Self {
+        Self::bottom()
+    }
+
+    fn concat<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        Self::join_all_from_bottom(iter)
+    }
+}
+
+impl algebra_core::CommutativeMonoid for Any {}
 
 // join = AND (conjunction, dual order)
 
@@ -298,6 +379,33 @@ impl From<bool> for All {
         All(value)
     }
 }
+
+// algebra-core trait implementations for All
+
+impl algebra_core::Semigroup for All {
+    fn combine(&self, other: &Self) -> Self {
+        self.join(other)
+    }
+
+    fn combine_assign(&mut self, other: &Self) {
+        self.join_assign(other);
+    }
+}
+
+impl algebra_core::Monoid for All {
+    fn empty() -> Self {
+        Self::bottom()
+    }
+
+    fn concat<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        Self::join_all_from_bottom(iter)
+    }
+}
+
+impl algebra_core::CommutativeMonoid for All {}
 
 // join = bitwise OR
 
@@ -388,6 +496,42 @@ impl<T> From<T> for BitOr<T> {
     fn from(value: T) -> Self {
         BitOr(value)
     }
+}
+
+// algebra-core trait implementations for BitOr
+
+impl<T> algebra_core::Semigroup for BitOr<T>
+where
+    T: Copy + std::ops::BitOr<Output = T>,
+{
+    fn combine(&self, other: &Self) -> Self {
+        self.join(other)
+    }
+
+    fn combine_assign(&mut self, other: &Self) {
+        self.join_assign(other);
+    }
+}
+
+impl<T> algebra_core::Monoid for BitOr<T>
+where
+    T: Copy + std::ops::BitOr<Output = T> + Default,
+{
+    fn empty() -> Self {
+        Self::bottom()
+    }
+
+    fn concat<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        Self::join_all_from_bottom(iter)
+    }
+}
+
+impl<T> algebra_core::CommutativeMonoid for BitOr<T> where
+    T: Copy + std::ops::BitOr<Output = T> + Default
+{
 }
 
 // join = bitwise AND
@@ -485,6 +629,42 @@ impl<T> From<T> for BitAnd<T> {
     fn from(value: T) -> Self {
         BitAnd(value)
     }
+}
+
+// algebra-core trait implementations for BitAnd
+
+impl<T> algebra_core::Semigroup for BitAnd<T>
+where
+    T: Copy + std::ops::BitAnd<Output = T>,
+{
+    fn combine(&self, other: &Self) -> Self {
+        self.join(other)
+    }
+
+    fn combine_assign(&mut self, other: &Self) {
+        self.join_assign(other);
+    }
+}
+
+impl<T> algebra_core::Monoid for BitAnd<T>
+where
+    T: Copy + std::ops::BitAnd<Output = T> + num_traits::Bounded,
+{
+    fn empty() -> Self {
+        Self::bottom()
+    }
+
+    fn concat<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        Self::join_all_from_bottom(iter)
+    }
+}
+
+impl<T> algebra_core::CommutativeMonoid for BitAnd<T> where
+    T: Copy + std::ops::BitAnd<Output = T> + num_traits::Bounded
+{
 }
 
 // HashSet: join = union
@@ -1209,4 +1389,64 @@ mod tests {
             assert_eq!(x.join(&all_flags), x);
         }
     }
+
+    // Tests for algebra-core integration
+
+    #[test]
+    fn lattice_is_semigroup() {
+        use algebra_core::Semigroup;
+
+        let x: Max<i32> = 3.into();
+        let y: Max<i32> = 5.into();
+
+        // combine() works via blanket impl
+        let z = x.combine(&y);
+        assert_eq!(z, Max(5));
+
+        // Associativity
+        let a: Max<i32> = 1.into();
+        let b: Max<i32> = 2.into();
+        let c: Max<i32> = 3.into();
+        assert_eq!(a.combine(&b).combine(&c), a.combine(&b.combine(&c)));
+    }
+
+    #[test]
+    fn bounded_lattice_is_monoid() {
+        use algebra_core::{Monoid, Semigroup};
+
+        // empty() works via blanket impl
+        let e = Max::<i32>::empty();
+        assert_eq!(e, Max(i32::MIN));
+
+        // Identity laws
+        let x: Max<i32> = 42.into();
+        assert_eq!(Max::empty().combine(&x), x);
+        assert_eq!(x.combine(&Max::empty()), x);
+
+        // concat() works via blanket impl
+        let values = vec![Max(1), Max(3), Max(2)];
+        assert_eq!(Max::concat(values), Max(3));
+
+        // concat of empty is identity
+        let empty: Vec<Max<i32>> = vec![];
+        assert_eq!(Max::concat(empty), Max::empty());
+    }
+
+    #[test]
+    fn bounded_lattice_is_commutative_monoid() {
+        use algebra_core::{CommutativeMonoid, Semigroup};
+
+        // Check that we can use the trait bound
+        fn use_commutative_monoid<T: CommutativeMonoid>(a: &T, b: &T) -> T {
+            a.combine(b)
+        }
+
+        let x: Max<i32> = 3.into();
+        let y: Max<i32> = 5.into();
+
+        // Commutativity
+        assert_eq!(x.combine(&y), y.combine(&x));
+        assert_eq!(use_commutative_monoid(&x, &y), Max(5));
+    }
+
 }
