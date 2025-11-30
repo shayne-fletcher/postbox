@@ -8,9 +8,10 @@ repository = "https://github.com/yourname/postbox"
 readme = "README.md"
 
 [features]
-default = ["async", "derive"]
+default = ["async", "derive", "bitflags"]
 async = ["tokio", "futures", "async-trait"]
 derive = ["postbox_derive"]
+bitflags = ["dep:bitflags"]
 
 [dependencies]
 num-traits = "0.2"
@@ -19,6 +20,8 @@ postbox_derive = { path = "../postbox_derive", optional = true }
 tokio       = { version = "1.48", default-features = false, features = ["sync","time","macros","rt-multi-thread"], optional = true }
 futures     = { version = "0.3", optional = true }
 async-trait = { version = "0.1", optional = true }
+# Bitflags support
+bitflags    = { version = "2.6", optional = true }
 
 [dev-dependencies]
 tokio   = { version = "1.48", features = ["macros","rt-multi-thread","time"] }
