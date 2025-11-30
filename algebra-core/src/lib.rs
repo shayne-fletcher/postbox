@@ -51,23 +51,24 @@
 //! - **[`BTreeSet<T>`](std::collections::BTreeSet)**: `JoinSemilattice`,
 //!   `BoundedJoinSemilattice`, `Semigroup`, `Monoid`, `CommutativeMonoid`
 //!
-//! ### Optional values (lifted lattice)
+//! ### Optional values (lifted monoid/lattice)
 //!
+//! - **[`Option<M>`](Option)** (where `M: Semigroup + Clone`): `Semigroup`
+//! - **[`Option<M>`](Option)** (where `M: Monoid + Clone`): `Monoid`, `Semigroup`
+//! - **[`Option<M>`](Option)** (where `M: CommutativeMonoid + Clone`): `CommutativeMonoid`
 //! - **[`Option<L>`](Option)** (where `L: JoinSemilattice + Clone`):
 //!   `JoinSemilattice`, `BoundedJoinSemilattice`
-//!   - `None` is bottom, `Some(a) ⊔ Some(b) = Some(a ⊔ b)`
+//!   - `None` is bottom/empty, `Some(a) ⊔ Some(b) = Some(a ⊔ b)`
 //!
-//! ### Tuples (product lattices)
+//! ### Tuples (product algebras)
 //!
-//! - **`()`**: `JoinSemilattice`, `BoundedJoinSemilattice`
-//! - **`(A,)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
-//! - **`(A, B)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
-//! - **`(A, B, C)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
-//! - **`(A, B, C, D)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
+//! - **`()`**: All traits (trivial implementations)
+//! - **`(A,)`, `(A, B)`, `(A, B, C)`, `(A, B, C, D)`**:
+//!   - `Semigroup`, `Monoid`, `CommutativeMonoid` (componentwise)
+//!   - `JoinSemilattice`, `BoundedJoinSemilattice` (componentwise)
 //!
 //! All tuple implementations require component types to implement the
-//! corresponding trait, and join/combine operations are applied
-//! componentwise.
+//! corresponding trait, and operations are applied componentwise.
 
 // Make the current crate visible as `algebra_core` for consistency
 extern crate self as algebra_core;
@@ -431,6 +432,23 @@ impl<L: JoinSemilattice + Clone> BoundedJoinSemilattice for Option<L> {
     }
 }
 
+impl<M: Semigroup + Clone> Semigroup for Option<M> {
+    fn combine(&self, other: &Self) -> Self {
+        match (self, other) {
+            (None, x) | (x, None) => x.clone(),
+            (Some(a), Some(b)) => Some(a.combine(b)),
+        }
+    }
+}
+
+impl<M: Monoid + Clone> Monoid for Option<M> {
+    fn empty() -> Self {
+        None
+    }
+}
+
+impl<M: CommutativeMonoid + Clone> CommutativeMonoid for Option<M> {}
+
 // Unit type
 
 impl JoinSemilattice for () {
@@ -440,6 +458,22 @@ impl JoinSemilattice for () {
 impl BoundedJoinSemilattice for () {
     fn bottom() -> Self {}
 }
+
+impl Semigroup for () {
+    fn combine(&self, _other: &Self) -> Self {}
+}
+
+impl Monoid for () {
+    fn empty() -> Self {}
+}
+
+impl CommutativeMonoid for () {}
+
+impl Group for () {
+    fn inverse(&self) -> Self {}
+}
+
+impl AbelianGroup for () {}
 
 // Tuples: product lattices
 
@@ -473,6 +507,45 @@ impl_product_lattice!(A:0);
 impl_product_lattice!(A:0, B:1);
 impl_product_lattice!(A:0, B:1, C:2);
 impl_product_lattice!(A:0, B:1, C:2, D:3);
+
+// Tuples: product monoids
+
+macro_rules! impl_product_monoid {
+    ( $( $T:ident : $idx:tt ),+ ) => {
+        impl<$( $T ),+> Semigroup for ( $( $T, )+ )
+        where
+            $( $T: Semigroup ),+
+        {
+            fn combine(&self, other: &Self) -> Self {
+                (
+                    $( self.$idx.combine(&other.$idx), )+
+                )
+            }
+        }
+
+        impl<$( $T ),+> Monoid for ( $( $T, )+ )
+        where
+            $( $T: Monoid ),+
+        {
+            fn empty() -> Self {
+                (
+                    $( $T::empty(), )+
+                )
+            }
+        }
+
+        impl<$( $T ),+> CommutativeMonoid for ( $( $T, )+ )
+        where
+            $( $T: CommutativeMonoid ),+
+        {
+        }
+    }
+}
+
+impl_product_monoid!(A:0);
+impl_product_monoid!(A:0, B:1);
+impl_product_monoid!(A:0, B:1, C:2);
+impl_product_monoid!(A:0, B:1, C:2, D:3);
 
 #[cfg(test)]
 mod tests {
