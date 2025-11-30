@@ -117,9 +117,11 @@ jobs:
     - name: add .nojekyll file
       working-directory: '.'
       run: touch target/doc/.nojekyll
-    - name: copy mascot image
+    - name: copy mascot image and favicon
       working-directory: '.'
-      run: cp ottie.jpg target/doc/
+      run: |
+        cp ottie.jpg target/doc/
+        cp favicon.ico target/doc/
     - name: create workspace index
       working-directory: '.'
       run: |
@@ -129,7 +131,8 @@ jobs:
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>postbox - Documentation</title>
+          <title>📬 postbox - Documentation</title>
+          <link rel="icon" type="image/x-icon" href="favicon.ico">
           <link rel="stylesheet" href="postbox/normalize1.81.0.css">
           <link rel="stylesheet" href="postbox/rustdoc1.81.0.css">
           <style>
