@@ -33,6 +33,19 @@ use std::fmt;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 
+/// A single-slot, asynchronous mutable variable (classic **MVar**).
+///
+/// `MVar<T>` holds either:
+/// - `None`  → the cell is **empty**
+/// - `Some` → the cell is **full**
+///
+/// `put` waits until the cell is empty, then fills it; `take` waits
+/// until the cell is full, then empties it and returns the value.
+/// This gives you a simple one-element rendezvous point for async
+/// tasks.
+///
+/// Internally this is implemented with a `Mutex<Option<T>>` plus two
+/// `Notify` signals tracking transitions between empty and full.
 pub struct MVar<T> {
     inner: Mutex<Option<T>>, // None = empty, Some(t) = full
     not_empty: Notify,       // signalled when we transition to full
