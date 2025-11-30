@@ -7,6 +7,8 @@
 //! - [`Semigroup`]: associative binary operation
 //! - [`Monoid`]: semigroup with identity element
 //! - [`CommutativeMonoid`]: monoid with commutative operation
+//! - [`JoinSemilattice`]: associative, commutative, idempotent operation
+//! - [`BoundedJoinSemilattice`]: join-semilattice with bottom element
 //! - [`Group`]: monoid with inverse elements
 //! - [`AbelianGroup`]: commutative group
 //!
@@ -37,6 +39,35 @@
 //! assert_eq!(x.combine(&y), Sum(8));
 //! assert_eq!(Sum::empty().combine(&x), x);
 //! ```
+//!
+//! ## Standard library implementations
+//!
+//! This crate provides implementations for common standard library types:
+//!
+//! ### Sets (union as join/combine)
+//!
+//! - **[`HashSet<T>`](std::collections::HashSet)**: `JoinSemilattice`,
+//!   `BoundedJoinSemilattice`, `Semigroup`, `Monoid`, `CommutativeMonoid`
+//! - **[`BTreeSet<T>`](std::collections::BTreeSet)**: `JoinSemilattice`,
+//!   `BoundedJoinSemilattice`, `Semigroup`, `Monoid`, `CommutativeMonoid`
+//!
+//! ### Optional values (lifted lattice)
+//!
+//! - **[`Option<L>`](Option)** (where `L: JoinSemilattice + Clone`):
+//!   `JoinSemilattice`, `BoundedJoinSemilattice`
+//!   - `None` is bottom, `Some(a) ⊔ Some(b) = Some(a ⊔ b)`
+//!
+//! ### Tuples (product lattices)
+//!
+//! - **`()`**: `JoinSemilattice`, `BoundedJoinSemilattice`
+//! - **`(A,)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
+//! - **`(A, B)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
+//! - **`(A, B, C)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
+//! - **`(A, B, C, D)`**: `JoinSemilattice`, `BoundedJoinSemilattice`
+//!
+//! All tuple implementations require component types to implement the
+//! corresponding trait, and join/combine operations are applied
+//! componentwise.
 
 // Make the current crate visible as `algebra_core` for consistency
 extern crate self as algebra_core;
