@@ -341,7 +341,8 @@ where
 {
 }
 
-/// A **monoid homomorphism**: a structure-preserving map between monoids.
+/// A **monoid homomorphism**: a structure-preserving map between
+/// monoids.
 ///
 /// A homomorphism `f: M → N` preserves both the monoid operation and
 /// identity:
@@ -371,7 +372,8 @@ where
 ///     fn empty() -> Self { Sum(0) }
 /// }
 ///
-/// // Set cardinality: approximately a monoid homomorphism from (HashSet, ∪) to (Sum, +)
+/// // Set cardinality: a monoid homomorphism from (HashSet, ∪) to
+/// // (Sum, +)
 /// // Note: Exact homomorphism property holds for disjoint unions
 /// struct Cardinality;
 ///
@@ -391,8 +393,8 @@ where
 /// assert_eq!(card.apply(&HashSet::empty()), Sum::empty());
 /// ```
 pub trait MonoidHom: SemigroupHom {
-    // Source and Target are already constrained to be Semigroups.
-    // We further require them to be Monoids (but Rust doesn't let us
+    // Source and Target are already constrained to be Semigroups. We
+    // further require them to be Monoids (but Rust doesn't let us
     // re-constrain associated types, so this is documented in the
     // laws)
 }
