@@ -9,10 +9,12 @@
 //! - [`Semigroup`]: associative binary operation
 //! - [`Monoid`]: semigroup with identity element
 //! - [`CommutativeMonoid`]: monoid with commutative operation
-//! - [`JoinSemilattice`]: associative, commutative, idempotent operation
-//! - [`BoundedJoinSemilattice`]: join-semilattice with bottom element
 //! - [`Group`]: monoid with inverse elements
 //! - [`AbelianGroup`]: commutative group
+//! - [`SemigroupHom`]: structure-preserving map between semigroups
+//! - [`MonoidHom`]: structure-preserving map between monoids
+//! - [`JoinSemilattice`]: associative, commutative, idempotent operation
+//! - [`BoundedJoinSemilattice`]: join-semilattice with bottom element
 //!
 //! ## Quick start
 //!
@@ -259,6 +261,155 @@ pub trait Group: Monoid {
 /// Named after mathematician Niels Henrik Abel.
 pub trait AbelianGroup: Group + CommutativeMonoid {
     // Marker trait - combines Group and CommutativeMonoid
+}
+
+/// A **semigroup homomorphism**: a structure-preserving map between
+/// semigroups.
+///
+/// A homomorphism `f: S → T` preserves the semigroup operation:
+///
+/// Laws (not enforced by type system):
+///
+/// - **Preserve combine**: `f(x.combine(y)) == f(x).combine(f(y))`
+///
+/// # Example
+///
+/// ```rust
+/// use algebra_core::{Semigroup, Monoid, SemigroupHom};
+///
+/// // Wrapper for usize with addition
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// struct Sum(usize);
+///
+/// impl Semigroup for Sum {
+///     fn combine(&self, other: &Self) -> Self {
+///         Sum(self.0 + other.0)
+///     }
+/// }
+///
+/// impl Monoid for Sum {
+///     fn empty() -> Self { Sum(0) }
+/// }
+///
+/// // String length is a homomorphism from (String, concat) to (Sum, +)
+/// struct Length;
+///
+/// impl SemigroupHom for Length {
+///     type Source = String;
+///     type Target = Sum;
+///
+///     fn apply(&self, s: &String) -> Sum {
+///         Sum(s.len())
+///     }
+/// }
+///
+/// // Verify: len(s1 + s2) = len(s1) + len(s2)
+/// let len = Length;
+/// let s1 = String::from("hello");
+/// let s2 = String::from("world");
+/// assert_eq!(
+///     len.apply(&s1.clone().combine(&s2)),
+///     len.apply(&s1).combine(&len.apply(&s2))
+/// );
+/// ```
+pub trait SemigroupHom {
+    /// The source semigroup
+    type Source: Semigroup;
+
+    /// The target semigroup
+    type Target: Semigroup;
+
+    /// Apply the homomorphism
+    fn apply(&self, x: &Self::Source) -> Self::Target;
+}
+
+/// Helper trait for explicitly specifying source and target types.
+///
+/// This is a blanket-implemented alias that allows writing
+/// `T: SemigroupHomFromTo<S, T>` instead of
+/// `T: SemigroupHom<Source = S, Target = T>`.
+pub trait SemigroupHomFromTo<S: Semigroup, T: Semigroup>:
+    SemigroupHom<Source = S, Target = T>
+{
+}
+
+impl<H, S, T> SemigroupHomFromTo<S, T> for H
+where
+    H: SemigroupHom<Source = S, Target = T>,
+    S: Semigroup,
+    T: Semigroup,
+{
+}
+
+/// A **monoid homomorphism**: a structure-preserving map between monoids.
+///
+/// A homomorphism `f: M → N` preserves both the monoid operation and
+/// identity:
+///
+/// Laws (not enforced by type system):
+///
+/// - **Preserve combine**: `f(x.combine(y)) == f(x).combine(f(y))`
+/// - **Preserve identity**: `f(M::empty()) == N::empty()`
+///
+/// # Example
+///
+/// ```rust
+/// use algebra_core::{Monoid, Semigroup, MonoidHom, SemigroupHom};
+/// use std::collections::HashSet;
+///
+/// // Wrapper for usize with addition
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// struct Sum(usize);
+///
+/// impl Semigroup for Sum {
+///     fn combine(&self, other: &Self) -> Self {
+///         Sum(self.0 + other.0)
+///     }
+/// }
+///
+/// impl Monoid for Sum {
+///     fn empty() -> Self { Sum(0) }
+/// }
+///
+/// // Set cardinality: approximately a monoid homomorphism from (HashSet, ∪) to (Sum, +)
+/// // Note: Exact homomorphism property holds for disjoint unions
+/// struct Cardinality;
+///
+/// impl SemigroupHom for Cardinality {
+///     type Source = HashSet<i32>;
+///     type Target = Sum;
+///
+///     fn apply(&self, s: &HashSet<i32>) -> Sum {
+///         Sum(s.len())
+///     }
+/// }
+///
+/// impl MonoidHom for Cardinality {}
+///
+/// // Verify identity preservation: |∅| = 0
+/// let card = Cardinality;
+/// assert_eq!(card.apply(&HashSet::empty()), Sum::empty());
+/// ```
+pub trait MonoidHom: SemigroupHom {
+    // Source and Target are already constrained to be Semigroups.
+    // We further require them to be Monoids (but Rust doesn't let us
+    // re-constrain associated types, so this is documented in the
+    // laws)
+}
+
+/// Helper trait for explicitly specifying source and target monoids.
+///
+/// This is a blanket-implemented alias that allows writing
+/// `T: MonoidHomFromTo<M, N>` instead of
+/// `T: MonoidHom<Source = M, Target = N>`.
+pub trait MonoidHomFromTo<M: Monoid, N: Monoid>: MonoidHom<Source = M, Target = N> {}
+
+impl<H, M, N> MonoidHomFromTo<M, N> for H
+where
+    H: MonoidHom<Source = M, Target = N>,
+    M: Monoid,
+    N: Monoid,
+{
 }
 
 /// A **join-semilattice**: a type with an associative, commutative,
