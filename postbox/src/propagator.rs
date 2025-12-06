@@ -24,15 +24,17 @@
 //!   Cell<A>  Cell<B>
 //!      │      │
 //!      └──┬───┘
-//!         │
+//!         ↓
 //!    Propagator
-//!         │
+//!         ↓
 //!      Cell<C>
 //! ```
 //!
-//! When cells A or B change, the propagator runs and may update cell
-//! C. Multiple propagators can write to the same cell (values merge
-//! via the semigroup operation).
+//! Arrows show data flow: the propagator **reads** from source cells
+//! A and B, then **writes** to target cell C. When cells A or B
+//! change, the propagator runs and may update cell C. Multiple
+//! propagators can write to the same cell (values merge via the
+//! semigroup operation).
 //!
 //! ## Status
 //!
@@ -43,7 +45,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use algebra_core::Semigroup;
+use algebra_core::{MonoidHom, Semigroup};
 
 /// A typed identifier for a cell holding values of type `S`.
 ///
@@ -484,6 +486,93 @@ pub trait Propagator {
     /// - For non-idempotent semigroups (String, gradients): repeated
     ///   calls keep accumulating
     fn activate(&mut self, network: &mut Network);
+}
+
+/// Generic propagator that applies a monoid homomorphism.
+///
+/// This propagator reads from a source cell, applies a
+/// structure-preserving transformation (monoid homomorphism), and
+/// writes the result to a target cell.
+///
+/// # Type Parameters
+///
+/// - `H`: A type implementing [`MonoidHom`](algebra_core::MonoidHom)
+///
+/// # Example
+///
+/// ```rust
+/// use postbox::propagator::{HomProp, Network, CellId, Propagator};
+/// use algebra_core::{MonoidHom, Semigroup, SemigroupHom};
+///
+/// // Sum wrapper for addition monoid
+/// #[derive(Debug, Clone, PartialEq, Eq)]
+/// struct Sum(usize);
+///
+/// impl Semigroup for Sum {
+///     fn combine(&self, other: &Self) -> Self {
+///         Sum(self.0 + other.0)
+///     }
+/// }
+///
+/// // True monoid homomorphism: String → Sum<usize> via length
+/// // Preserves structure: length(s1 + s2) = length(s1) + length(s2)
+/// struct StringLength;
+///
+/// impl SemigroupHom for StringLength {
+///     type Source = String;
+///     type Target = Sum;
+///
+///     fn apply(&self, x: &Self::Source) -> Self::Target {
+///         Sum(x.len())
+///     }
+/// }
+///
+/// impl MonoidHom for StringLength {}
+/// // Homomorphism laws:
+/// // 1. length("" + s) = length("") + length(s) = 0 + len(s) ✓
+/// // 2. length(s1 + s2) = length(s1) + length(s2) ✓
+///
+/// let mut net = Network::new();
+/// let source = net.add_cell(String::from("hello"));
+/// let target = net.add_cell(Sum(0));
+///
+/// let mut prop = HomProp {
+///     hom: StringLength,
+///     source,
+///     target,
+/// };
+///
+/// prop.activate(&mut net);
+/// assert_eq!(net.read(target), &Sum(5)); // length of "hello" is 5
+/// ```
+///
+/// # Use Cases
+///
+/// - **Type transformations**: Convert between different semigroup types
+///   while preserving algebraic structure
+/// - **Autodiff foundation**: Gradient computation is a homomorphism from
+///   the computation graph to the gradient space
+/// - **Compositional pipelines**: Homomorphisms compose, enabling modular
+///   transformation chains
+pub struct HomProp<H: MonoidHom> {
+    /// The monoid homomorphism to apply
+    pub hom: H,
+    /// Source cell to read from
+    pub source: CellId<H::Source>,
+    /// Target cell to write to
+    pub target: CellId<H::Target>,
+}
+
+impl<H: MonoidHom> Propagator for HomProp<H>
+where
+    H::Source: 'static,
+    H::Target: PartialEq + 'static,
+{
+    fn activate(&mut self, network: &mut Network) {
+        let value = network.read(self.source);
+        let result = self.hom.apply(value);
+        network.merge(self.target, result);
+    }
 }
 
 #[cfg(test)]

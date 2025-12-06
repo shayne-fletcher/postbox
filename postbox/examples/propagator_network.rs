@@ -7,10 +7,9 @@
 //!
 //! Run with: `cargo run --example propagator_network`
 
-use algebra_core::Semigroup;
+use algebra_core::{MonoidHom, Semigroup, SemigroupHom};
 use postbox::join_semilattice::Max;
-use postbox::propagator::{CellId, Network, Propagator};
-use std::collections::HashSet;
+use postbox::propagator::{CellId, HomProp, Network, Propagator};
 
 // ============================================================
 // Example 1: Homogeneous network (all cells are Max<i32>)
@@ -130,111 +129,140 @@ fn homogeneous_example() {
 }
 
 // ============================================================
-// Example 2: Heterogeneous network (mixed cell types)
+// Example 2: Heterogeneous network with homomorphisms
 // ============================================================
 //
 // WHAT IT DEMONSTRATES:
 // - Type-safe heterogeneous storage: different cell types in one network
-// - Cross-type computation: HashSet → Max<i32> via size calculation
+// - **TRUE monoid homomorphisms**: structure-preserving transformations
+// - Using the library's generic HomProp<H> with custom homomorphisms
 // - CellId<S> provides compile-time type safety despite runtime type erasure
 //
 // HOW IT WORKS:
-// - Creates HashSet<String> cells (tags1, tags2, all_tags)
-// - Creates Max<i32> cell (tag_count)
-// - UnionProp merges sets: all_tags = tags1 ∪ tags2
-// - SizeProp converts: tag_count = |all_tags|
-// - Demonstrates that a single network can hold Mix<Max<i32>> and HashSet<String>
+// - Creates String cells (msg1, msg2, msg3, combined)
+// - Creates Sum<usize> cell (length) for the character count
+// - ConcatProp concatenates: combined = msg1 + msg2 + msg3
+// - HomProp<StringLength> applies a TRUE homomorphism: String → Sum via length
+// - StringLength satisfies: length(s1 + s2) = length(s1) + length(s2) ✓
 //
 // WHAT WE LEARN:
 // - The network uses Box<dyn Any> internally but CellId<S> maintains type safety
-// - You can't accidentally use CellId<HashSet<String>> where CellId<Max<i32>> is expected
-// - Propagators can connect cells of different types as long as the computation makes sense
+// - You can't accidentally use CellId<String> where CellId<Sum> is expected
+// - HomProp<H> is a reusable library component - you just define your homomorphisms
+// - TRUE homomorphisms preserve algebraic structure exactly
+// - This is the foundation for autodiff: gradient computation is a homomorphism!
 // - Converges in 1 iteration (all propagators run together)
 
-/// Propagator that merges two sets
-struct UnionProp {
-    source1: CellId<HashSet<String>>,
-    source2: CellId<HashSet<String>>,
-    target: CellId<HashSet<String>>,
+/// Propagator that concatenates strings
+struct ConcatProp {
+    sources: Vec<CellId<String>>,
+    target: CellId<String>,
 }
 
-impl Propagator for UnionProp {
+impl Propagator for ConcatProp {
     fn activate(&mut self, network: &mut Network) {
-        let v1 = network.read(self.source1);
-        let v2 = network.read(self.source2);
-        let result = v1.combine(v2);
+        let mut result = String::new();
+        for &source in &self.sources {
+            result = result.combine(network.read(source));
+        }
         network.merge(self.target, result);
     }
 }
 
-/// Propagator that converts set size to a Max value
-struct SizeProp {
-    source: CellId<HashSet<String>>,
-    target: CellId<Max<i32>>,
+// ============================================================
+// Example homomorphism: StringLength (String → Sum via length)
+// ============================================================
+//
+// This example demonstrates defining a TRUE monoid homomorphism and
+// using it with the library's generic HomProp propagator.
+//
+// HomProp<H> is provided by the library - it works with ANY
+// MonoidHom. You just define your domain-specific transformations.
+
+/// Sum wrapper for addition monoid
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Sum(usize);
+
+impl Semigroup for Sum {
+    fn combine(&self, other: &Self) -> Self {
+        Sum(self.0 + other.0)
+    }
 }
 
-impl Propagator for SizeProp {
-    fn activate(&mut self, network: &mut Network) {
-        let set = network.read(self.source);
-        let size = Max(set.len() as i32);
-        network.merge(self.target, size);
+/// True monoid homomorphism: String → Sum<usize> via length.
+///
+/// This IS a proper homomorphism because:
+/// - length(s1 + s2) = length(s1) + length(s2) ✓
+/// - length("") = 0 (identity preserved) ✓
+struct StringLength;
+
+impl SemigroupHom for StringLength {
+    type Source = String;
+    type Target = Sum;
+
+    fn apply(&self, x: &Self::Source) -> Self::Target {
+        Sum(x.len())
     }
+}
+
+impl MonoidHom for StringLength {
+    // Homomorphism laws verified:
+    // 1. length(s1 + s2) = len(s1) + len(s2) [structure preserved]
+    // 2. length("") = 0 [identity preserved]
 }
 
 fn heterogeneous_example() {
     println!("=== Heterogeneous Network Example ===");
-    println!("Combining different lattice types in one network\n");
+    println!("Combining different types with homomorphisms\n");
 
     let mut net = Network::new();
 
     // Create cells of different types
-    let tags1 = net.add_cell(HashSet::from(["rust".to_string(), "async".to_string()]));
-    let tags2 = net.add_cell(HashSet::from(["lattice".to_string(), "crdt".to_string()]));
-    let all_tags = net.add_cell(HashSet::new());
-    let tag_count = net.add_cell(Max(0));
+    let msg1 = net.add_cell(String::from("Hello"));
+    let msg2 = net.add_cell(String::from(", "));
+    let msg3 = net.add_cell(String::from("World"));
+    let combined = net.add_cell(String::new());
+    let length = net.add_cell(Sum(0));
 
     // Create propagators that work across types
     let mut props: Vec<Box<dyn Propagator>> = vec![
-        Box::new(UnionProp {
-            source1: tags1,
-            source2: tags2,
-            target: all_tags,
+        // Concatenate strings: combined = msg1 + msg2 + msg3
+        Box::new(ConcatProp {
+            sources: vec![msg1, msg2, msg3],
+            target: combined,
         }),
-        Box::new(SizeProp {
-            source: all_tags,
-            target: tag_count,
+        // Apply homomorphism: length = |combined|
+        Box::new(HomProp {
+            hom: StringLength,
+            source: combined,
+            target: length,
         }),
     ];
 
     println!("Initial state:");
-    println!("  tags1 = {:?}", net.read(tags1));
-    println!("  tags2 = {:?}", net.read(tags2));
-    println!("  all_tags = {:?}", net.read(all_tags));
-    println!("  tag_count = {}\n", net.read(tag_count).0);
+    println!("  msg1 = {:?}", net.read(msg1));
+    println!("  msg2 = {:?}", net.read(msg2));
+    println!("  msg3 = {:?}", net.read(msg3));
+    println!("  combined = {:?}", net.read(combined));
+    println!("  length = {}\n", net.read(length).0);
 
-    // Run to fixed point
-    let mut changed = true;
-    let mut iterations = 0;
-    while changed {
-        changed = false;
-        for prop in &mut props {
-            prop.activate(&mut net);
-        }
-        iterations += 1;
-
-        // Simple termination check
-        if net.read(tag_count).0 == 4 || iterations > 10 {
-            break;
-        }
+    // Run propagators once
+    // Note: With non-idempotent semigroups like String concatenation,
+    // repeated activation would keep accumulating values. For this
+    // simple example, we just run once.
+    for prop in &mut props {
+        prop.activate(&mut net);
     }
 
     println!("After propagation:");
-    println!("  tags1 = {:?}", net.read(tags1));
-    println!("  tags2 = {:?}", net.read(tags2));
-    println!("  all_tags = {:?}", net.read(all_tags));
-    println!("  tag_count = {}", net.read(tag_count).0);
-    println!("\nNote: all_tags is the union of tags1 and tags2");
-    println!("      tag_count tracks the size of all_tags");
+    println!("  msg1 = {:?}", net.read(msg1));
+    println!("  msg2 = {:?}", net.read(msg2));
+    println!("  msg3 = {:?}", net.read(msg3));
+    println!("  combined = {:?}", net.read(combined));
+    println!("  length = {}", net.read(length).0);
+    println!("\nNote: combined = msg1 + msg2 + msg3");
+    println!("      length uses the library's HomProp<StringLength>");
+    println!("      StringLength is a TRUE homomorphism: length(s1+s2) = length(s1)+length(s2)");
 }
 
 // ============================================================

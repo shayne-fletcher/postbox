@@ -62,6 +62,7 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - `Semigroup`, `Monoid`, `CommutativeMonoid`: basic algebraic structures
 - `Group`, `AbelianGroup`: invertible algebraic structures
 - `JoinSemilattice`, `BoundedJoinSemilattice`: lattice traits
+- `SemigroupHom`, `MonoidHom`: structure-preserving transformations between algebraic types
 
 ### Lattice types (from `postbox`):
 - `Max<T>`, `Min<T>`: lattice wrappers for max/min
@@ -78,8 +79,9 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - 🔄 Accumulative computation with semigroup-valued cells
 - Works with any semigroup: lattices (Max, HashSet), gradients (addition), or custom algebras
 - Type-safe heterogeneous networks via `CellId<S>`
+- Generic `HomProp<H>` for monoid homomorphism transformations
 - Sync and async support
-- Core types: `Network`, `Cell<S>`, `CellId<S>`, `Propagator` trait
+- Core types: `Network`, `Cell<S>`, `CellId<S>`, `Propagator` trait, `HomProp<H>`
 
 ### State-based CRDTs (from `postbox`):
 - `GCounter<Id>`: grow-only CRDT counter
