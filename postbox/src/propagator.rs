@@ -502,17 +502,7 @@ pub trait Propagator {
 ///
 /// ```rust
 /// use postbox::propagator::{HomProp, Network, CellId, Propagator};
-/// use algebra_core::{MonoidHom, Semigroup, SemigroupHom};
-///
-/// // Sum wrapper for addition monoid
-/// #[derive(Debug, Clone, PartialEq, Eq)]
-/// struct Sum(usize);
-///
-/// impl Semigroup for Sum {
-///     fn combine(&self, other: &Self) -> Self {
-///         Sum(self.0 + other.0)
-///     }
-/// }
+/// use algebra_core::{MonoidHom, SemigroupHom, Sum};
 ///
 /// // True monoid homomorphism: String → Sum<usize> via length
 /// // Preserves structure: length(s1 + s2) = length(s1) + length(s2)
@@ -520,7 +510,7 @@ pub trait Propagator {
 ///
 /// impl SemigroupHom for StringLength {
 ///     type Source = String;
-///     type Target = Sum;
+///     type Target = Sum<usize>;
 ///
 ///     fn apply(&self, x: &Self::Source) -> Self::Target {
 ///         Sum(x.len())

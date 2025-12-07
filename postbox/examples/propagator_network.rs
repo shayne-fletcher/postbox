@@ -7,7 +7,7 @@
 //!
 //! Run with: `cargo run --example propagator_network`
 
-use algebra_core::{MonoidHom, Semigroup, SemigroupHom};
+use algebra_core::{MonoidHom, Semigroup, SemigroupHom, Sum};
 use postbox::join_semilattice::Max;
 use postbox::propagator::{CellId, HomProp, Network, Propagator};
 
@@ -179,16 +179,6 @@ impl Propagator for ConcatProp {
 // HomProp<H> is provided by the library - it works with ANY
 // MonoidHom. You just define your domain-specific transformations.
 
-/// Sum wrapper for addition monoid
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Sum(usize);
-
-impl Semigroup for Sum {
-    fn combine(&self, other: &Self) -> Self {
-        Sum(self.0 + other.0)
-    }
-}
-
 /// True monoid homomorphism: String → Sum<usize> via length.
 ///
 /// This IS a proper homomorphism because:
@@ -198,7 +188,7 @@ struct StringLength;
 
 impl SemigroupHom for StringLength {
     type Source = String;
-    type Target = Sum;
+    type Target = Sum<usize>;
 
     fn apply(&self, x: &Self::Source) -> Self::Target {
         Sum(x.len())

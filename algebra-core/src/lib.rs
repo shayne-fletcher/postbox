@@ -19,29 +19,14 @@
 //! ## Quick start
 //!
 //! ```rust
-//! use algebra_core::{Semigroup, Monoid, CommutativeMonoid};
+//! use algebra_core::{Semigroup, Monoid, CommutativeMonoid, Sum};
 //!
-//! // Integers under addition form a commutative monoid
-//! #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-//! struct Sum(i32);
-//!
-//! impl Semigroup for Sum {
-//!     fn combine(&self, other: &Self) -> Self {
-//!         Sum(self.0 + other.0)
-//!     }
-//! }
-//!
-//! impl Monoid for Sum {
-//!     fn empty() -> Self {
-//!         Sum(0)
-//!     }
-//! }
-//!
-//! // Use it
-//! let x = Sum(3);
-//! let y = Sum(5);
-//! assert_eq!(x.combine(&y), Sum(8));
-//! assert_eq!(Sum::empty().combine(&x), x);
+//! // Sum<T> is provided by the library for addition monoids
+//! let a = Sum(5);
+//! let b = Sum(3);
+//! let c = a.combine(&b);
+//! assert_eq!(c, Sum(8));
+//! assert_eq!(Sum::<i32>::empty(), Sum(0));
 //! ```
 //!
 //! ## Standard library implementations
@@ -589,6 +574,104 @@ impl Monoid for String {
         String::new()
     }
 }
+
+// ============================================================
+// Numeric wrappers: Sum and Product
+// ============================================================
+
+/// Wrapper type for the addition monoid.
+///
+/// `Sum<T>` forms a monoid under addition (`+`), making it useful for
+/// accumulating numeric values, counting, or gradient accumulation in
+/// automatic differentiation.
+///
+/// # Examples
+///
+/// ```
+/// use algebra_core::{Monoid, Semigroup, Sum};
+///
+/// let a = Sum(5);
+/// let b = Sum(3);
+/// let c = a.combine(&b);
+/// assert_eq!(c, Sum(8));
+///
+/// assert_eq!(Sum::<i32>::empty(), Sum(0));
+/// ```
+///
+/// # Use in Autodiff
+///
+/// Gradient accumulation in reverse-mode automatic differentiation
+/// is fundamentally `Sum<f64>`:
+///
+/// ```
+/// use algebra_core::{Semigroup, Sum};
+///
+/// let grad1 = Sum(0.5);
+/// let grad2 = Sum(0.3);
+/// let total_grad = grad1.combine(&grad2);
+/// assert_eq!(total_grad.0, 0.8);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Sum<T>(pub T);
+
+impl<T: std::ops::Add<Output = T> + Clone> Semigroup for Sum<T> {
+    fn combine(&self, other: &Self) -> Self {
+        Sum(self.0.clone() + other.0.clone())
+    }
+}
+
+impl<T: std::ops::Add<Output = T> + Clone + num_traits::Zero> Monoid for Sum<T> {
+    fn empty() -> Self {
+        Sum(T::zero())
+    }
+}
+
+impl<T: std::ops::Add<Output = T> + Clone + num_traits::Zero> CommutativeMonoid for Sum<T> {}
+
+/// Wrapper type for the multiplication monoid.
+///
+/// `Product<T>` forms a monoid under multiplication (`*`), useful for
+/// computing products, scaling factors, or combining probabilities.
+///
+/// # Examples
+///
+/// ```
+/// use algebra_core::{Monoid, Semigroup, Product};
+///
+/// let a = Product(5);
+/// let b = Product(3);
+/// let c = a.combine(&b);
+/// assert_eq!(c, Product(15));
+///
+/// assert_eq!(Product::<i32>::empty(), Product(1));
+/// ```
+///
+/// # Combining Probabilities
+///
+/// ```
+/// use algebra_core::{Semigroup, Product};
+///
+/// let prob1 = Product(0.5);
+/// let prob2 = Product(0.5);
+/// let joint_prob = prob1.combine(&prob2);
+/// assert_eq!(joint_prob.0, 0.25);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Product<T>(pub T);
+
+impl<T: std::ops::Mul<Output = T> + Clone> Semigroup for Product<T> {
+    fn combine(&self, other: &Self) -> Self {
+        Product(self.0.clone() * other.0.clone())
+    }
+}
+
+impl<T: std::ops::Mul<Output = T> + Clone + num_traits::One> Monoid for Product<T> {
+    fn empty() -> Self {
+        Product(T::one())
+    }
+}
+
+impl<T: std::ops::Mul<Output = T> + Clone + num_traits::One> CommutativeMonoid for Product<T> {}
 
 // Option: lifted lattice
 

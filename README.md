@@ -63,6 +63,7 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - `Group`, `AbelianGroup`: invertible algebraic structures
 - `JoinSemilattice`, `BoundedJoinSemilattice`: lattice traits
 - `SemigroupHom`, `MonoidHom`: structure-preserving transformations between algebraic types
+- `Sum<T>`, `Product<T>`: numeric wrappers for addition and multiplication monoids
 
 ### Lattice types (from `postbox`):
 - `Max<T>`, `Min<T>`: lattice wrappers for max/min
