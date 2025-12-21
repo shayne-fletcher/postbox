@@ -835,6 +835,98 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    // ============================================================
+    // Max<T> tests
+    // ============================================================
+
+    #[test]
+    fn max_join_is_maximum() {
+        let a = Max(5);
+        let b = Max(10);
+        assert_eq!(a.join(&b), Max(10));
+        assert_eq!(b.join(&a), Max(10));
+    }
+
+    #[test]
+    fn max_bottom_is_min_value() {
+        assert_eq!(Max::<i32>::bottom(), Max(i32::MIN));
+        assert_eq!(Max::<u32>::bottom(), Max(u32::MIN));
+    }
+
+    #[test]
+    fn max_is_idempotent() {
+        let x = Max(42);
+        assert_eq!(x.join(&x), x);
+    }
+
+    #[test]
+    fn max_is_commutative() {
+        let a = Max(3);
+        let b = Max(7);
+        assert_eq!(a.join(&b), b.join(&a));
+    }
+
+    #[test]
+    fn max_is_associative() {
+        let a = Max(1);
+        let b = Max(5);
+        let c = Max(3);
+        assert_eq!(a.join(&b).join(&c), a.join(&b.join(&c)));
+    }
+
+    #[test]
+    fn max_bottom_is_identity() {
+        let x = Max(100);
+        assert_eq!(Max::bottom().join(&x), x);
+        assert_eq!(x.join(&Max::bottom()), x);
+    }
+
+    // ============================================================
+    // Min<T> tests
+    // ============================================================
+
+    #[test]
+    fn min_join_is_minimum() {
+        let a = Min(5);
+        let b = Min(10);
+        assert_eq!(a.join(&b), Min(5));
+        assert_eq!(b.join(&a), Min(5));
+    }
+
+    #[test]
+    fn min_bottom_is_max_value() {
+        assert_eq!(Min::<i32>::bottom(), Min(i32::MAX));
+        assert_eq!(Min::<u32>::bottom(), Min(u32::MAX));
+    }
+
+    #[test]
+    fn min_is_idempotent() {
+        let x = Min(42);
+        assert_eq!(x.join(&x), x);
+    }
+
+    #[test]
+    fn min_is_commutative() {
+        let a = Min(3);
+        let b = Min(7);
+        assert_eq!(a.join(&b), b.join(&a));
+    }
+
+    #[test]
+    fn min_is_associative() {
+        let a = Min(1);
+        let b = Min(5);
+        let c = Min(3);
+        assert_eq!(a.join(&b).join(&c), a.join(&b.join(&c)));
+    }
+
+    #[test]
+    fn min_bottom_is_identity() {
+        let x = Min(100);
+        assert_eq!(Min::bottom().join(&x), x);
+        assert_eq!(x.join(&Min::bottom()), x);
+    }
+
     // Helper to build a set quickly.
     fn set<T>(xs: &[T]) -> HashSet<T>
     where
@@ -889,10 +981,78 @@ mod tests {
     }
 
     #[test]
+    fn nonempty_join_collect_refs() {
+        let a: HashSet<_> = [1, 2].into_iter().collect();
+        let b: HashSet<_> = [2, 3].into_iter().collect();
+        let sets = vec![a, b];
+        let ne = NonEmptyJoinOf::from_iter_nonempty_ref(sets.iter()).unwrap();
+        assert_eq!(ne.0, [1, 2, 3].into_iter().collect());
+    }
+
+    #[test]
+    fn max_from_converts() {
+        let m: Max<i32> = Max::from(42);
+        assert_eq!(m.0, 42);
+    }
+
+    #[test]
+    fn min_from_converts() {
+        let m: Min<i32> = Min::from(42);
+        assert_eq!(m.0, 42);
+    }
+
+    #[test]
+    fn any_from_converts() {
+        let a: Any = Any::from(true);
+        assert_eq!(a.0, true);
+    }
+
+    #[test]
+    fn all_from_converts() {
+        let a: All = All::from(false);
+        assert_eq!(a.0, false);
+    }
+
+    #[test]
+    fn bitor_from_converts() {
+        let b: BitOr<u32> = BitOr::from(42u32);
+        assert_eq!(b.0, 42);
+    }
+
+    #[test]
+    fn bitand_from_converts() {
+        let b: BitAnd<u32> = BitAnd::from(42u32);
+        assert_eq!(b.0, 42);
+    }
+
+    #[test]
     fn joinof_empty_is_bottom() {
         // For the bounded collector, empty → bottom (∅ for sets).
         let JoinOf(u) = std::iter::empty::<HashSet<i32>>().collect::<JoinOf<_>>();
         assert!(u.is_empty());
+    }
+
+    #[test]
+    fn joinof_into_inner_unwraps() {
+        let sets = vec![[1, 2].into_iter().collect::<HashSet<_>>()];
+        let j: JoinOf<_> = sets.into_iter().collect();
+        let inner = j.into_inner();
+        assert_eq!(inner, [1, 2].into_iter().collect());
+    }
+
+    #[test]
+    fn joinof_deref_works() {
+        let sets = vec![[1, 2].into_iter().collect::<HashSet<_>>()];
+        let j: JoinOf<_> = sets.into_iter().collect();
+        assert!(j.contains(&1)); // Deref to HashSet
+    }
+
+    #[test]
+    fn nonempty_joinof_into_inner_unwraps() {
+        let sets = vec![[1, 2].into_iter().collect::<HashSet<_>>()];
+        let ne = NonEmptyJoinOf::from_iter_nonempty(sets).unwrap();
+        let inner = ne.into_inner();
+        assert_eq!(inner, [1, 2].into_iter().collect());
     }
 
     #[test]
@@ -988,6 +1148,57 @@ mod tests {
         assert_eq!(j.get(&"a"), Some(&Max(1)));
         assert_eq!(j.get(&"b"), Some(&Max(10))); // max(10, 7)
         assert_eq!(j.get(&"c"), Some(&Max(3)));
+    }
+
+    #[test]
+    fn lattice_map_new_is_empty() {
+        let m: LatticeMap<i32, Max<i32>> = LatticeMap::new();
+        assert!(m.is_empty());
+        assert_eq!(m.len(), 0);
+    }
+
+    #[test]
+    fn lattice_map_bottom_is_empty() {
+        let m: LatticeMap<i32, Max<i32>> = BoundedJoinSemilattice::bottom();
+        assert!(m.is_empty());
+        assert_eq!(m.len(), 0);
+    }
+
+    #[test]
+    fn lattice_map_insert_and_get() {
+        let mut m: LatticeMap<&str, Max<i32>> = LatticeMap::new();
+        m.insert("foo", Max(42));
+        assert_eq!(m.get(&"foo"), Some(&Max(42)));
+        assert_eq!(m.get(&"bar"), None);
+        assert_eq!(m.len(), 1);
+        assert!(!m.is_empty());
+    }
+
+    #[test]
+    fn lattice_map_iter_works() {
+        let mut m: LatticeMap<&str, Max<i32>> = LatticeMap::new();
+        m.insert("a", Max(1));
+        m.insert("b", Max(2));
+        let items: std::collections::HashMap<_, _> = m.iter().map(|(k, v)| (*k, v.0)).collect();
+        assert_eq!(items.get(&"a"), Some(&1));
+        assert_eq!(items.get(&"b"), Some(&2));
+        assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn lattice_map_as_inner_provides_access() {
+        let mut m: LatticeMap<&str, Max<i32>> = LatticeMap::new();
+        m.insert("test", Max(99));
+        let inner = m.as_inner();
+        assert_eq!(inner.get(&"test"), Some(&Max(99)));
+    }
+
+    #[test]
+    fn lattice_map_into_inner_unwraps() {
+        let mut m: LatticeMap<&str, Max<i32>> = LatticeMap::new();
+        m.insert("x", Max(7));
+        let inner = m.into_inner();
+        assert_eq!(inner.get(&"x"), Some(&Max(7)));
     }
 
     #[test]

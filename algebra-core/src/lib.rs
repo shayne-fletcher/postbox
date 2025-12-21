@@ -913,6 +913,139 @@ mod tests {
         assert_eq!(x.combine(&y), y.combine(&x));
     }
 
+    // ============================================================
+    // Standard library implementations
+    // ============================================================
+
+    #[test]
+    fn hashset_semigroup_is_union() {
+        use std::collections::HashSet;
+        let a: HashSet<_> = [1, 2, 3].into_iter().collect();
+        let b: HashSet<_> = [3, 4, 5].into_iter().collect();
+        let result = a.combine(&b);
+        let expected: HashSet<_> = [1, 2, 3, 4, 5].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn hashset_monoid_empty_is_empty_set() {
+        use std::collections::HashSet;
+        let empty = HashSet::<i32>::empty();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn hashset_join_semilattice_is_union() {
+        use std::collections::HashSet;
+        let a: HashSet<_> = [1, 2].into_iter().collect();
+        let b: HashSet<_> = [2, 3].into_iter().collect();
+        assert_eq!(a.join(&b), [1, 2, 3].into_iter().collect());
+    }
+
+    #[test]
+    fn hashset_bottom_is_empty() {
+        use std::collections::HashSet;
+        let bottom = HashSet::<i32>::bottom();
+        assert!(bottom.is_empty());
+    }
+
+    #[test]
+    fn btreeset_semigroup_is_union() {
+        use std::collections::BTreeSet;
+        let a: BTreeSet<_> = [1, 2, 3].into_iter().collect();
+        let b: BTreeSet<_> = [3, 4, 5].into_iter().collect();
+        let result = a.combine(&b);
+        let expected: BTreeSet<_> = [1, 2, 3, 4, 5].into_iter().collect();
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn btreeset_bottom_is_empty() {
+        use std::collections::BTreeSet;
+        let bottom = BTreeSet::<i32>::bottom();
+        assert!(bottom.is_empty());
+    }
+
+    #[test]
+    fn string_semigroup_is_concatenation() {
+        let a = String::from("Hello");
+        let b = String::from(" World");
+        assert_eq!(a.combine(&b), "Hello World");
+    }
+
+    #[test]
+    fn string_monoid_empty_is_empty_string() {
+        assert_eq!(String::empty(), "");
+    }
+
+    #[test]
+    fn option_semigroup_combines_inner_values() {
+        let a = Some(Sum(3));
+        let b = Some(Sum(5));
+        assert_eq!(a.combine(&b), Some(Sum(8)));
+    }
+
+    #[test]
+    fn option_semigroup_none_propagates() {
+        let a: Option<Sum> = None;
+        let b = Some(Sum(5));
+        assert_eq!(a.combine(&b), Some(Sum(5)));
+        assert_eq!(b.combine(&a), Some(Sum(5)));
+    }
+
+    #[test]
+    fn option_monoid_empty_is_none() {
+        assert_eq!(Option::<Sum>::empty(), None);
+    }
+
+    #[test]
+    fn option_join_semilattice_joins_inner() {
+        use std::collections::HashSet;
+        let a: Option<HashSet<_>> = Some([1, 2].into_iter().collect());
+        let b: Option<HashSet<_>> = Some([2, 3].into_iter().collect());
+        let expected: Option<HashSet<_>> = Some([1, 2, 3].into_iter().collect());
+        assert_eq!(a.join(&b), expected);
+    }
+
+    #[test]
+    fn option_bottom_is_none() {
+        use std::collections::HashSet;
+        let bottom = Option::<HashSet<i32>>::bottom();
+        assert_eq!(bottom, None);
+    }
+
+    // ============================================================
+    // Sum<T> and Product<T> tests
+    // ============================================================
+
+    #[test]
+    fn sum_wrapper_implements_semigroup() {
+        use crate::Sum;
+        let a = Sum(5);
+        let b = Sum(3);
+        assert_eq!(a.combine(&b), Sum(8));
+    }
+
+    #[test]
+    fn sum_wrapper_monoid_empty_is_zero() {
+        use crate::Sum;
+        assert_eq!(Sum::<i32>::empty(), Sum(0));
+    }
+
+    #[test]
+    fn product_wrapper_implements_semigroup() {
+        use crate::Product;
+        let a = Product(5);
+        let b = Product(3);
+        assert_eq!(a.combine(&b), Product(15));
+    }
+
+    #[test]
+    fn product_wrapper_monoid_empty_is_one() {
+        use crate::Product;
+        assert_eq!(Product::<i32>::empty(), Product(1));
+    }
+
     // Tests for derive macros on tuple structs
     #[cfg(feature = "derive")]
     mod derive_tuple_tests {

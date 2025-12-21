@@ -211,4 +211,37 @@ mod tests {
             .expect("timed out");
         assert!(target.is_subset(&got));
     }
+
+    #[tokio::test]
+    async fn get_returns_current_value() {
+        let cell = LVar::<HashSet<i32>>::new();
+        assert_eq!(cell.get(), HashSet::new());
+
+        cell.put_join(&set(&[1, 2]));
+        assert_eq!(cell.get(), set(&[1, 2]));
+
+        cell.put_join(&set(&[2, 3]));
+        assert_eq!(cell.get(), set(&[1, 2, 3]));
+    }
+
+    #[tokio::test]
+    async fn put_join_returns_false_when_no_change() {
+        let cell = LVar::<HashSet<i32>>::new();
+        assert!(cell.put_join(&set(&[1, 2])));
+        assert!(!cell.put_join(&set(&[1]))); // subset, no change
+        assert!(!cell.put_join(&set(&[1, 2]))); // equal, no change
+        assert!(cell.put_join(&set(&[3]))); // new element, changes
+    }
+
+    #[tokio::test]
+    async fn clone_shares_state() {
+        let cell1 = LVar::<HashSet<i32>>::new();
+        let cell2 = cell1.clone();
+
+        cell1.put_join(&set(&[1, 2]));
+        assert_eq!(cell2.get(), set(&[1, 2]));
+
+        cell2.put_join(&set(&[3]));
+        assert_eq!(cell1.get(), set(&[1, 2, 3]));
+    }
 }

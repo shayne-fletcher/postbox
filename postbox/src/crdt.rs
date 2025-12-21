@@ -1207,4 +1207,101 @@ mod tests {
         assert_eq!(r.len(), 1);
         assert_eq!(r.values(), vec!["current"]);
     }
+
+    #[test]
+    fn gcounter_accessor_methods() {
+        let mut c = GCounter::new("A");
+        assert_eq!(c.id(), &"A");
+        assert_eq!(c.value(), 0);
+
+        c.inc(5);
+        assert_eq!(c.value(), 5);
+        assert_eq!(c.state().counts().get(&"A"), Some(&5));
+    }
+
+    #[test]
+    fn pncounter_accessor_methods() {
+        let mut c = PNCounter::new("A");
+        assert_eq!(c.id(), &"A");
+        assert_eq!(c.value(), 0);
+
+        c.inc(10);
+        c.dec(3);
+        assert_eq!(c.value(), 7);
+
+        let s = c.state().clone();
+        let mut c2 = PNCounter::new("B");
+        c2.set_state(s);
+        assert_eq!(c2.value(), 7);
+    }
+
+    #[test]
+    fn gset_accessor_methods() {
+        let mut s = GSet::new();
+        assert!(s.elements().is_empty());
+        assert!(!s.contains(&1));
+
+        s.insert(1);
+        s.insert(2);
+        assert_eq!(s.elements().len(), 2);
+        assert!(s.contains(&1));
+        assert!(!s.contains(&3));
+    }
+
+    #[test]
+    fn twopset_accessor_methods() {
+        let mut s = TwoPSet::new();
+        assert!(s.elements().is_empty());
+        assert!(!s.contains(&1));
+
+        s.add(1);
+        s.add(2);
+        assert_eq!(s.elements().len(), 2);
+        assert!(s.contains(&1));
+
+        s.remove(1);
+        assert!(!s.contains(&1));
+        assert_eq!(s.elements().len(), 1);
+
+        let state = s.state().clone();
+        assert_eq!(state.adds().len(), 2);
+        assert_eq!(state.removes().len(), 1);
+
+        let mut s2 = TwoPSet::new();
+        s2.set_state(state);
+        assert_eq!(s2.elements().len(), 1);
+    }
+
+    #[test]
+    fn orset_accessor_methods() {
+        let mut s = ORSet::new("A");
+        assert_eq!(s.id(), &"A");
+        assert!(s.elements().is_empty());
+        assert!(!s.contains(&1));
+
+        s.add(1);
+        s.add(2);
+        assert_eq!(s.elements().len(), 2);
+        assert!(s.contains(&1));
+
+        let state = s.state().clone();
+        assert_eq!(state.adds().len(), 2);
+        assert_eq!(state.removes().len(), 0);
+
+        let mut s2 = ORSet::new("B");
+        s2.set_state(state);
+        assert_eq!(s2.elements().len(), 2);
+    }
+
+    #[test]
+    fn lww_value_and_timestamp() {
+        let r1 = LWW { value: 42, ts: 10 };
+        assert_eq!(r1.value, 42);
+        assert_eq!(r1.ts, 10);
+
+        let r2 = LWW { value: 99, ts: 5 };
+        let j = r1.join(&r2);
+        assert_eq!(j.value, 42); // Newer timestamp wins
+        assert_eq!(j.ts, 10);
+    }
 }

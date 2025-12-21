@@ -258,4 +258,75 @@ mod tests {
         assert_eq!(old, 1);
         assert_eq!(m.read_clone().await, 2);
     }
+
+    #[tokio::test]
+    async fn new_empty_creates_empty_mvar() {
+        let m: MVar<i32> = MVar::new_empty();
+        assert!(m.is_empty().await);
+    }
+
+    #[tokio::test]
+    async fn new_creates_full_mvar() {
+        let m = MVar::new(42);
+        assert!(!m.is_empty().await);
+        assert_eq!(m.take().await, 42);
+    }
+
+    #[tokio::test]
+    async fn try_put_succeeds_when_empty() {
+        let m: MVar<i32> = MVar::new_empty();
+        let result = m.try_put(10).await;
+        assert!(result.is_ok());
+        assert_eq!(m.take().await, 10);
+    }
+
+    #[tokio::test]
+    async fn try_put_fails_when_full() {
+        let m = MVar::new(5);
+        let result = m.try_put(10).await;
+        assert_eq!(result, Err(10)); // Returns the value back
+        assert_eq!(m.take().await, 5); // Original value unchanged
+    }
+
+    #[tokio::test]
+    async fn try_take_succeeds_when_full() {
+        let m = MVar::new(42);
+        let result = m.try_take().await;
+        assert_eq!(result, Some(42));
+        assert!(m.is_empty().await);
+    }
+
+    #[tokio::test]
+    async fn try_take_fails_when_empty() {
+        let m: MVar<i32> = MVar::new_empty();
+        let result = m.try_take().await;
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn with_allows_readonly_access() {
+        let m = MVar::new(String::from("hello"));
+        let len = m.with(|s| s.len()).await;
+        assert_eq!(len, 5);
+        // Value still in MVar
+        assert!(!m.is_empty().await);
+    }
+
+    #[tokio::test]
+    async fn is_empty_reflects_state() {
+        let m: MVar<i32> = MVar::new_empty();
+        assert!(m.is_empty().await);
+
+        m.put(10).await;
+        assert!(!m.is_empty().await);
+
+        m.take().await;
+        assert!(m.is_empty().await);
+    }
+
+    #[tokio::test]
+    async fn default_creates_empty_mvar() {
+        let m: MVar<i32> = MVar::default();
+        assert!(m.is_empty().await);
+    }
 }
