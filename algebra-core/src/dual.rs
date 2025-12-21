@@ -6,16 +6,19 @@
 //!
 //! # Mathematical Background
 //!
-//! A dual number has the form `a + b*ε` where `ε² = 0`. When we perform
-//! arithmetic on dual numbers, the derivative automatically propagates
-//! via the chain rule:
+//! A dual number has the form `a + a′·ε` where `ε² = 0` (and `a′` denotes
+//! the derivative). Arithmetic operations on dual numbers follow these
+//! algebraic rules:
 //!
-//! - `(a + b*ε) + (c + d*ε) = (a+c) + (b+d)*ε`
-//! - `-(a + b*ε) = -a + (-b)*ε`
-//! - `(a + b*ε) - (c + d*ε) = (a-c) + (b-d)*ε`
-//! - `(a + b*ε) * (c + d*ε) = ac + (ad + bc)*ε`
-//! - `1/(c + d*ε) = (1/c) + (-d/c²)*ε`
-//! - `(a + b*ε) / (c + d*ε) = (a + b*ε) * (1/(c + d*ε))`
+//! - `(a + a′·ε) + (b + b′·ε) = (a+b) + (a′+b′)·ε`
+//! - `-(a + a′·ε) = -a + (-a′)·ε`
+//! - `(a + a′·ε) - (b + b′·ε) = (a-b) + (a′-b′)·ε`
+//! - `(a + a′·ε) * (b + b′·ε) = ab + (a′b + ab′)·ε`
+//! - `1/(b + b′·ε) = (1/b) + (-b′/b²)·ε`
+//! - `(a + a′·ε) / (b + b′·ε) = (a + a′·ε) * (1/(b + b′·ε))`
+//!
+//! The chain rule emerges implicitly from composing these operations—you
+//! never write it down explicitly.
 //!
 //! This is **forward-mode** automatic differentiation: we compute the
 //! derivative as we compute the function value.
@@ -38,7 +41,7 @@
 //!
 //! - **Arithmetic**: `+`, `-`, `*`, `/`, negation
 //! - **Transcendental**: `exp`, `ln`, `sin`, `cos`, `sqrt`
-//! - All operations automatically compute derivatives via the chain rule
+//! - Derivatives propagate automatically; chain rule emerges from composition
 //!
 //! # Use Cases
 //!
@@ -52,9 +55,9 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// A dual number representing a value and its derivative.
 ///
-/// `Dual(value, deriv)` represents `value + deriv*ε` where `ε² = 0`.
-/// Arithmetic operations automatically compute derivatives via the
-/// chain rule.
+/// `Dual(value, deriv)` represents `value + deriv·ε` where `ε² = 0`.
+/// Arithmetic operations follow the algebraic rules of dual numbers;
+/// derivatives propagate automatically.
 ///
 /// # Type Parameter
 ///
@@ -174,7 +177,7 @@ impl<T> Dual<T> {
 
     /// Reciprocal (multiplicative inverse).
     ///
-    /// For `g = b + b'*ε`, computes `1/g = (1/b) + (-b'/b²)*ε`.
+    /// For `g = b + b′·ε`, computes `1/g = (1/b) + (-b′/b²)·ε`.
     ///
     /// This encodes the derivative of `1/x`: `d/dx(1/x) = -1/x²`.
     ///
@@ -205,9 +208,9 @@ impl<T> Dual<T> {
 
     /// Exponential function.
     ///
-    /// For `f = a + a'*ε`, computes `e^f = e^a + (a' * e^a)*ε`.
+    /// For `f = a + a′·ε`, computes `e^f = e^a + (a′·e^a)·ε`.
     ///
-    /// This encodes the derivative: `d/dx(e^f) = f' * e^f`.
+    /// This encodes the derivative: `d/dx(e^f) = f′·e^f`.
     ///
     /// # Example
     ///
@@ -234,9 +237,9 @@ impl<T> Dual<T> {
 
     /// Natural logarithm.
     ///
-    /// For `f = a + a'*ε`, computes `ln(f) = ln(a) + (a'/a)*ε`.
+    /// For `f = a + a′·ε`, computes `ln(f) = ln(a) + (a′/a)·ε`.
     ///
-    /// This encodes the derivative: `d/dx(ln f) = f'/f`.
+    /// This encodes the derivative: `d/dx(ln f) = f′/f`.
     ///
     /// # Example
     ///
@@ -262,9 +265,9 @@ impl<T> Dual<T> {
 
     /// Sine function.
     ///
-    /// For `f = a + a'*ε`, computes `sin(f) = sin(a) + (a' * cos(a))*ε`.
+    /// For `f = a + a′·ε`, computes `sin(f) = sin(a) + (a′·cos(a))·ε`.
     ///
-    /// This encodes the derivative: `d/dx(sin f) = f' * cos f`.
+    /// This encodes the derivative: `d/dx(sin f) = f′·cos f`.
     ///
     /// # Example
     ///
@@ -290,9 +293,9 @@ impl<T> Dual<T> {
 
     /// Cosine function.
     ///
-    /// For `f = a + a'*ε`, computes `cos(f) = cos(a) + (-a' * sin(a))*ε`.
+    /// For `f = a + a′·ε`, computes `cos(f) = cos(a) + (-a′·sin(a))·ε`.
     ///
-    /// This encodes the derivative: `d/dx(cos f) = -f' * sin f`.
+    /// This encodes the derivative: `d/dx(cos f) = -f′·sin f`.
     ///
     /// # Example
     ///
@@ -318,9 +321,9 @@ impl<T> Dual<T> {
 
     /// Square root.
     ///
-    /// For `f = a + a'*ε`, computes `√f = √a + (a'/(2√a))*ε`.
+    /// For `f = a + a′·ε`, computes `√f = √a + (a′/(2√a))·ε`.
     ///
-    /// This encodes the derivative: `d/dx(√f) = f'/(2√f)`.
+    /// This encodes the derivative: `d/dx(√f) = f′/(2√f)`.
     ///
     /// # Example
     ///
@@ -346,7 +349,7 @@ impl<T> Dual<T> {
     }
 }
 
-/// Addition: (a + b*ε) + (c + d*ε) = (a+c) + (b+d)*ε
+/// Addition: (a + a′·ε) + (b + b′·ε) = (a+b) + (a′+b′)·ε
 impl<T: Add<Output = T>> Add for Dual<T> {
     type Output = Dual<T>;
 
@@ -358,7 +361,7 @@ impl<T: Add<Output = T>> Add for Dual<T> {
     }
 }
 
-/// Subtraction: (a + b*ε) - (c + d*ε) = (a-c) + (b-d)*ε
+/// Subtraction: (a + a′·ε) - (b + b′·ε) = (a-b) + (a′-b′)·ε
 impl<T: Sub<Output = T>> Sub for Dual<T> {
     type Output = Dual<T>;
 
@@ -370,16 +373,16 @@ impl<T: Sub<Output = T>> Sub for Dual<T> {
     }
 }
 
-/// Multiplication: (a + b*ε) * (c + d*ε) = ac + (ad + bc)*ε
+/// Multiplication: (a + a′·ε) * (b + b′·ε) = ab + (a′b + ab′)·ε
 ///
-/// This implements the product rule: d/dx(f*g) = f'*g + f*g'
+/// This implements the product rule: d/dx(f·g) = f′·g + f·g′
 impl<T: Mul<Output = T> + Add<Output = T> + Clone> Mul for Dual<T> {
     type Output = Dual<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Dual {
             value: self.value.clone() * rhs.value.clone(),
-            // Product rule: f'*g + f*g'
+            // Product rule: f′·g + f·g′
             deriv: self.deriv * rhs.value + self.value * rhs.deriv,
         }
     }
@@ -400,7 +403,7 @@ where
     }
 }
 
-/// Negation: -(a + b*ε) = -a + (-b)*ε
+/// Negation: -(a + a′·ε) = -a + (-a′)·ε
 impl<T: Neg<Output = T>> Neg for Dual<T> {
     type Output = Dual<T>;
 
