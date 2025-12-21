@@ -392,6 +392,7 @@ impl<T: Mul<Output = T> + Add<Output = T> + Clone> Mul for Dual<T> {
 ///
 /// The quotient rule emerges automatically from the product rule
 /// (in `Mul`) composed with the reciprocal rule (in `recip`).
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl<T> Div for Dual<T>
 where
     T: One + Div<Output = T> + Mul<Output = T> + Add<Output = T> + Neg<Output = T> + Clone,
