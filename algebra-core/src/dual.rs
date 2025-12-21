@@ -7,8 +7,8 @@
 //! # Mathematical Background
 //!
 //! A dual number has the form `a + a′·ε` where `ε² = 0` (and `a′` denotes
-//! the derivative). Arithmetic operations on dual numbers follow these
-//! algebraic rules:
+//! the derivative with respect to the seeded input). Arithmetic operations
+//! on dual numbers follow these algebraic rules:
 //!
 //! - `(a + a′·ε) + (b + b′·ε) = (a+b) + (a′+b′)·ε`
 //! - `-(a + a′·ε) = -a + (-a′)·ε`
@@ -35,6 +35,35 @@
 //!
 //! assert_eq!(f.value, 15.0);    // f(3) = 9 + 6 = 15
 //! assert_eq!(f.deriv, 8.0);     // f'(3) = 2*3 + 2 = 8
+//! ```
+//!
+//! # Reusable Functions
+//!
+//! The idiomatic way to compute derivatives at multiple points is to
+//! write the function once and evaluate it with different seeds:
+//!
+//! ```
+//! use algebra_core::Dual;
+//!
+//! // Define the function once
+//! fn f(x: Dual<f64>) -> Dual<f64> {
+//!     x * x + Dual::constant(2.0) * x
+//! }
+//!
+//! // Helper to evaluate f and f' at a point
+//! fn eval_f_and_df(a: f64) -> (f64, f64) {
+//!     let y = f(Dual::variable(a));
+//!     (y.value, y.deriv)
+//! }
+//!
+//! // Evaluate at multiple points without rewriting the expression
+//! let (v1, dv1) = eval_f_and_df(3.0);
+//! assert_eq!(v1, 15.0);   // f(3) = 15
+//! assert_eq!(dv1, 8.0);   // f'(3) = 8
+//!
+//! let (v2, dv2) = eval_f_and_df(5.0);
+//! assert_eq!(v2, 35.0);   // f(5) = 35
+//! assert_eq!(dv2, 12.0);  // f'(5) = 12
 //! ```
 //!
 //! # Supported Operations
@@ -177,9 +206,11 @@ impl<T> Dual<T> {
 
     /// Reciprocal (multiplicative inverse).
     ///
-    /// For `g = b + b′·ε`, computes `1/g = (1/b) + (-b′/b²)·ε`.
+    /// For `g = b + b′·ε` with `b ≠ 0`, computes:
     ///
-    /// This encodes the derivative of `1/x`: `d/dx(1/x) = -1/x²`.
+    /// `g⁻¹ = (1/b) + (-b′/b²)·ε`
+    ///
+    /// This encodes the derivative rule: `(1/g)′ = -g′/g²`.
     ///
     /// # Example
     ///
@@ -250,8 +281,8 @@ impl<T> Dual<T> {
     /// let x = Dual::variable(1.0);
     /// let f = x.ln();
     ///
-    /// assert_eq!(f.value, 0.0);      // ln(1) = 0
-    /// assert_eq!(f.deriv, 1.0);      // d/dx(ln x) at x=1 is 1/1 = 1
+    /// assert!((f.value - 0.0_f64).abs() < 1e-12);   // ln(1) = 0
+    /// assert!((f.deriv - 1.0_f64).abs() < 1e-12);   // d/dx(ln x) at x=1 is 1/1 = 1
     /// ```
     pub fn ln(self) -> Self
     where
@@ -278,8 +309,8 @@ impl<T> Dual<T> {
     /// let x = Dual::variable(0.0);
     /// let f = x.sin();
     ///
-    /// assert_eq!(f.value, 0.0);      // sin(0) = 0
-    /// assert_eq!(f.deriv, 1.0);      // d/dx(sin x) at x=0 is cos(0) = 1
+    /// assert!((f.value - 0.0_f64).abs() < 1e-12);   // sin(0) = 0
+    /// assert!((f.deriv - 1.0_f64).abs() < 1e-12);   // d/dx(sin x) at x=0 is cos(0) = 1
     /// ```
     pub fn sin(self) -> Self
     where
@@ -306,8 +337,8 @@ impl<T> Dual<T> {
     /// let x = Dual::variable(0.0);
     /// let f = x.cos();
     ///
-    /// assert_eq!(f.value, 1.0);      // cos(0) = 1
-    /// assert_eq!(f.deriv, 0.0);      // d/dx(cos x) at x=0 is -sin(0) = 0
+    /// assert!((f.value - 1.0_f64).abs() < 1e-12);   // cos(0) = 1
+    /// assert!((f.deriv - 0.0_f64).abs() < 1e-12);   // d/dx(cos x) at x=0 is -sin(0) = 0
     /// ```
     pub fn cos(self) -> Self
     where
@@ -603,5 +634,32 @@ mod tests {
         let e = 1.0_f64.exp();
         assert_eq!(f.value, e);
         assert!((f.deriv - 2.0 * e).abs() < 1e-10);
+    }
+
+    #[test]
+    fn reusable_function_pattern() {
+        // Define a function once
+        fn f(x: Dual<f64>) -> Dual<f64> {
+            x * x + Dual::constant(2.0) * x
+        }
+
+        // Helper to evaluate f and f' at a point
+        fn eval_f_and_df(a: f64) -> (f64, f64) {
+            let y = f(Dual::variable(a));
+            (y.value, y.deriv)
+        }
+
+        // Evaluate at multiple points
+        let (v1, dv1) = eval_f_and_df(3.0);
+        assert_eq!(v1, 15.0); // f(3) = 9 + 6 = 15
+        assert_eq!(dv1, 8.0); // f'(3) = 2*3 + 2 = 8
+
+        let (v2, dv2) = eval_f_and_df(5.0);
+        assert_eq!(v2, 35.0); // f(5) = 25 + 10 = 35
+        assert_eq!(dv2, 12.0); // f'(5) = 2*5 + 2 = 12
+
+        let (v3, dv3) = eval_f_and_df(0.0);
+        assert_eq!(v3, 0.0); // f(0) = 0
+        assert_eq!(dv3, 2.0); // f'(0) = 2
     }
 }
