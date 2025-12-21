@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example dual_transcendentals`
 
-use algebra_core::Dual;
+use autodiff::Dual;
 
 fn main() {
     println!("=== Dual Numbers: Transcendental Functions ===\n");

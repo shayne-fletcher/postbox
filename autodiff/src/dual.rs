@@ -26,7 +26,7 @@
 //! # Example
 //!
 //! ```
-//! use algebra_core::Dual;
+//! use autodiff::Dual;
 //!
 //! // Compute f(x) = x² + 2x at x=3
 //! let x = Dual::variable(3.0);  // x with derivative dx/dx = 1
@@ -43,7 +43,7 @@
 //! write the function once and evaluate it with different seeds:
 //!
 //! ```
-//! use algebra_core::Dual;
+//! use autodiff::Dual;
 //!
 //! // Define the function once
 //! fn f(x: Dual<f64>) -> Dual<f64> {
@@ -97,7 +97,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Basic Usage
 ///
 /// ```
-/// use algebra_core::Dual;
+/// use autodiff::Dual;
 ///
 /// let x = Dual::variable(5.0);
 /// let y = x * x;  // y = x²
@@ -109,7 +109,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Chain Rule
 ///
 /// ```
-/// use algebra_core::Dual;
+/// use autodiff::Dual;
 ///
 /// // f(x) = (x + 1) * (x + 2)
 /// let x = Dual::variable(3.0);
@@ -122,7 +122,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Multiple Operations
 ///
 /// ```
-/// use algebra_core::Dual;
+/// use autodiff::Dual;
 ///
 /// // f(x) = x³ - 2x + 1
 /// let x = Dual::variable(2.0);
@@ -147,7 +147,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// let d = Dual::new(3.0, 1.0);
     /// assert_eq!(d.value, 3.0);
@@ -164,7 +164,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// let c = Dual::constant(5.0);
     /// assert_eq!(c.value, 5.0);
@@ -188,7 +188,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// let x = Dual::variable(3.0);
     /// assert_eq!(x.value, 3.0);
@@ -215,7 +215,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// // f(x) = 1/x at x=2
     /// let x = Dual::variable(2.0);
@@ -246,7 +246,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// // f(x) = e^x at x=0
     /// let x = Dual::variable(0.0);
@@ -275,7 +275,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// // f(x) = ln(x) at x=1
     /// let x = Dual::variable(1.0);
@@ -303,7 +303,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// // f(x) = sin(x) at x=0
     /// let x = Dual::variable(0.0);
@@ -331,7 +331,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// // f(x) = cos(x) at x=0
     /// let x = Dual::variable(0.0);
@@ -359,7 +359,7 @@ impl<T> Dual<T> {
     /// # Example
     ///
     /// ```
-    /// use algebra_core::Dual;
+    /// use autodiff::Dual;
     ///
     /// // f(x) = √x at x=4
     /// let x = Dual::variable(4.0);

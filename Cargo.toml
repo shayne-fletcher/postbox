@@ -2,6 +2,7 @@
 members = [
     "algebra-core",
     "algebra-core-derive",
+    "autodiff",
     "postbox",
 ]
 resolver = "2"

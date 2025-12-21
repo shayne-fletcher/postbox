@@ -7,11 +7,12 @@
   <img src="ottie.jpg" alt="Ottie the Otter - postbox mascot" width="300">
 </p>
 
-Lattice-based state + async cells for Rust.
+Algebraic abstractions and computational tools for Rust.
 
 This workspace contains:
 - **`algebra-core`**: Core algebraic abstractions (Semigroup, Monoid, Group, Semilattice)
 - **`algebra-core-derive`**: Derive macros for algebraic traits
+- **`autodiff`**: Automatic differentiation (forward-mode with dual numbers)
 - **`postbox`**: Lattice-based state, LVars, MVars, and CRDTs built on algebra-core
 
 ## Getting Started
@@ -64,6 +65,8 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - `JoinSemilattice`, `BoundedJoinSemilattice`: lattice traits
 - `SemigroupHom`, `MonoidHom`: structure-preserving transformations between algebraic types
 - `Sum<T>`, `Product<T>`: numeric wrappers for addition and multiplication monoids
+
+### Automatic differentiation (from `autodiff`):
 - `Dual<T>`: dual numbers for forward-mode automatic differentiation
 
 ### Lattice types (from `postbox`):

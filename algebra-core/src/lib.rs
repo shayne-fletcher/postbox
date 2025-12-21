@@ -15,7 +15,6 @@
 //! - [`MonoidHom`]: structure-preserving map between monoids
 //! - [`JoinSemilattice`]: associative, commutative, idempotent operation
 //! - [`BoundedJoinSemilattice`]: join-semilattice with bottom element
-//! - [`Dual`]: dual numbers for forward-mode automatic differentiation
 //!
 //! ## Quick start
 //!
@@ -812,13 +811,6 @@ pub use algebra_core_derive::{
     AbelianGroup, BoundedJoinSemilattice, CommutativeMonoid, Group, JoinSemilattice, Monoid,
     Semigroup,
 };
-
-// ============================================================
-// Dual numbers for automatic differentiation
-// ============================================================
-
-pub mod dual;
-pub use dual::Dual;
 
 #[cfg(test)]
 mod tests {
