@@ -984,7 +984,7 @@ mod tests {
     fn nonempty_join_collect_refs() {
         let a: HashSet<_> = [1, 2].into_iter().collect();
         let b: HashSet<_> = [2, 3].into_iter().collect();
-        let sets = vec![a, b];
+        let sets = [a, b];
         let ne = NonEmptyJoinOf::from_iter_nonempty_ref(sets.iter()).unwrap();
         assert_eq!(ne.0, [1, 2, 3].into_iter().collect());
     }
@@ -1004,13 +1004,13 @@ mod tests {
     #[test]
     fn any_from_converts() {
         let a: Any = Any::from(true);
-        assert_eq!(a.0, true);
+        assert!(a.0);
     }
 
     #[test]
     fn all_from_converts() {
         let a: All = All::from(false);
-        assert_eq!(a.0, false);
+        assert!(!a.0);
     }
 
     #[test]
