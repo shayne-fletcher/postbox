@@ -67,7 +67,9 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - `Sum<T>`, `Product<T>`: numeric wrappers for addition and multiplication monoids
 
 ### Automatic differentiation (from `autodiff`):
-- `Dual<T>`: dual numbers for forward-mode automatic differentiation
+- `Dual<T>`: dual numbers for single-variable forward-mode AD
+- `MultiDual<T, N>`: multi-component dual numbers for computing gradients in a single pass
+- `gradient()`: helper function for computing gradients of f: ℝⁿ → ℝ
 
 ### Lattice types (from `postbox`):
 - `Max<T>`, `Min<T>`: lattice wrappers for max/min

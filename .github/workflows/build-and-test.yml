@@ -199,7 +199,7 @@ jobs:
             </li>
             <li>
               <h2><a href="autodiff/index.html">autodiff</a></h2>
-              <p>Automatic differentiation: forward-mode AD using dual numbers, with support for transcendental functions.</p>
+              <p>Automatic differentiation: forward-mode AD with single-variable dual numbers and multivariable gradient computation in a single pass.</p>
             </li>
             <li>
               <h2><a href="postbox/index.html">postbox</a></h2>
