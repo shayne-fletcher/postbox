@@ -39,7 +39,10 @@ fn main() {
     println!("  At minimum (1, 1):");
     let (value, grad) = gradient(rosenbrock, [1.0, 1.0]);
     println!("    f(1, 1) = {}", value);
-    println!("    ∇f = [{}, {}] (gradient is zero at minimum)", grad[0], grad[1]);
+    println!(
+        "    ∇f = [{}, {}] (gradient is zero at minimum)",
+        grad[0], grad[1]
+    );
 
     println!("  At starting point (0, 0):");
     let (value, grad) = gradient(rosenbrock, [0.0, 0.0]);
@@ -111,7 +114,11 @@ fn main() {
     let (value, grad) = gradient(f, [1.0, 0.0]);
     let e = 1.0_f64.exp();
     println!("  f(1, 0) = {:.6} (expected: e ≈ {:.6})", value, e);
-    println!("  ∂f/∂x = {:.6} (expected: 2x·exp(x²) = 2e ≈ {:.6})", grad[0], 2.0 * e);
+    println!(
+        "  ∂f/∂x = {:.6} (expected: 2x·exp(x²) = 2e ≈ {:.6})",
+        grad[0],
+        2.0 * e
+    );
     println!("  ∂f/∂y = {} (independent of y)", grad[1]);
     println!();
 
