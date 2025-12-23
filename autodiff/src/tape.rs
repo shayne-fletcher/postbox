@@ -66,7 +66,32 @@ impl<T: Float> Var<T> {
 
     /// Computes the reciprocal `1/self`.
     pub fn recip(self) -> Self {
-        unary(self, OpKind::Recip)
+        unary(self, OpKind::Recip, |a| T::one() / a)
+    }
+
+    /// Computes `e^self`.
+    pub fn exp(self) -> Self {
+        unary(self, OpKind::Exp, |a| a.exp())
+    }
+
+    /// Computes `sin(self)`.
+    pub fn sin(self) -> Self {
+        unary(self, OpKind::Sin, |a| a.sin())
+    }
+
+    /// Computes `cos(self)`.
+    pub fn cos(self) -> Self {
+        unary(self, OpKind::Cos, |a| a.cos())
+    }
+
+    /// Computes `ln(self)`.
+    pub fn ln(self) -> Self {
+        unary(self, OpKind::Ln, |a| a.ln())
+    }
+
+    /// Computes `sqrt(self)`.
+    pub fn sqrt(self) -> Self {
+        unary(self, OpKind::Sqrt, |a| a.sqrt())
     }
 }
 
@@ -134,6 +159,26 @@ impl<T: Float> Tape<T> {
                     let a = self.vals[op.a];
                     self.grads[op.a] = self.grads[op.a] + go * (-(T::one()) / (a * a));
                 }
+                OpKind::Exp => {
+                    let out = self.vals[op.out];
+                    self.grads[op.a] = self.grads[op.a] + go * out;
+                }
+                OpKind::Sin => {
+                    let a = self.vals[op.a];
+                    self.grads[op.a] = self.grads[op.a] + go * a.cos();
+                }
+                OpKind::Cos => {
+                    let a = self.vals[op.a];
+                    self.grads[op.a] = self.grads[op.a] - go * a.sin();
+                }
+                OpKind::Ln => {
+                    let a = self.vals[op.a];
+                    self.grads[op.a] = self.grads[op.a] + go / a;
+                }
+                OpKind::Sqrt => {
+                    let out = self.vals[op.out];
+                    self.grads[op.a] = self.grads[op.a] + go / (out + out);
+                }
             }
         }
     }
@@ -153,18 +198,18 @@ enum OpKind {
     Div,
     Neg,
     Recip,
+    Exp,
+    Sin,
+    Cos,
+    Ln,
+    Sqrt,
 }
 
-fn unary<T: Float>(x: Var<T>, kind: OpKind) -> Var<T> {
+fn unary<T: Float>(x: Var<T>, kind: OpKind, f: impl FnOnce(T) -> T) -> Var<T> {
     let tape = x.tape.clone();
     let outv = {
         let t = tape.borrow();
-        let a = t.vals[x.idx];
-        match kind {
-            OpKind::Neg => -a,
-            OpKind::Recip => T::one() / a,
-            _ => unreachable!(),
-        }
+        f(t.vals[x.idx])
     };
 
     let out = {
@@ -234,7 +279,7 @@ impl<T: Float> Div for Var<T> {
 impl<T: Float> Neg for Var<T> {
     type Output = Var<T>;
     fn neg(self) -> Self::Output {
-        unary(self, OpKind::Neg)
+        unary(self, OpKind::Neg, |a| -a)
     }
 }
 
@@ -312,4 +357,38 @@ where
     let result = f(var);
     result.backward();
     (result.value(), var_clone.grad())
+}
+
+/// Computes the value and gradient of a multivariable function using reverse-mode AD.
+///
+/// This is the reverse-mode equivalent of [`gradient`](crate::gradient) for
+/// functions f: ℝⁿ → ℝ.
+///
+/// # Examples
+///
+/// ```
+/// use autodiff::{reverse_gradient, Var};
+///
+/// // f(x, y) = x² + x*y at (3, 4)
+/// let f = |[x, y]: [Var<f64>; 2]| x.clone() * x.clone() + x * y;
+///
+/// let (val, grad) = reverse_gradient(f, [3.0, 4.0]);
+/// assert_eq!(val, 21.0);       // f(3, 4) = 9 + 12 = 21
+/// assert_eq!(grad[0], 10.0);   // ∂f/∂x = 2x + y = 10
+/// assert_eq!(grad[1], 3.0);    // ∂f/∂y = x = 3
+/// ```
+pub fn reverse_gradient<T, F, const N: usize>(f: F, point: [T; N]) -> (T, [T; N])
+where
+    T: Float,
+    F: FnOnce([Var<T>; N]) -> Var<T>,
+{
+    let tape = Var::<T>::tape();
+    let vars: [Var<T>; N] = std::array::from_fn(|i| Var::variable_on(tape.clone(), point[i]));
+    let vars_clone = vars.clone();
+    let result = f(vars);
+    result.backward();
+    (
+        result.value(),
+        std::array::from_fn(|i| vars_clone[i].grad()),
+    )
 }

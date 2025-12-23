@@ -199,7 +199,7 @@ jobs:
             </li>
             <li>
               <h2><a href="autodiff/index.html">autodiff</a></h2>
-              <p>Automatic differentiation: forward-mode AD with dual numbers, multivariable gradients, and reverse-mode AD (backpropagation).</p>
+              <p>Automatic differentiation: forward-mode and reverse-mode AD with support for single-variable and multivariable functions.</p>
             </li>
             <li>
               <h2><a href="postbox/index.html">postbox</a></h2>

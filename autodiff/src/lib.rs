@@ -50,7 +50,7 @@
 //!
 //! # Reverse-mode AD
 //!
-//! Use [`reverse_diff`] for reverse-mode (backpropagation):
+//! Use [`reverse_diff`] for single-variable reverse-mode (backpropagation):
 //!
 //! ```
 //! use autodiff::{reverse_diff, Var};
@@ -63,6 +63,20 @@
 //! assert_eq!(val, 8.0);    // f(3) = 8
 //! assert_eq!(deriv, 6.0);  // f'(3) = 2x = 6
 //! ```
+//!
+//! Use [`reverse_gradient`] for multivariable functions:
+//!
+//! ```
+//! use autodiff::{reverse_gradient, Var};
+//!
+//! // f(x, y) = x² + x*y
+//! let f = |[x, y]: [Var<f64>; 2]| x.clone() * x.clone() + x * y;
+//!
+//! let (val, grad) = reverse_gradient(f, [3.0, 4.0]);
+//! assert_eq!(val, 21.0);       // f(3, 4) = 21
+//! assert_eq!(grad[0], 10.0);   // ∂f/∂x = 2x + y = 10
+//! assert_eq!(grad[1], 3.0);    // ∂f/∂y = x = 3
+//! ```
 
 pub mod dual;
 pub mod multidual;
@@ -70,4 +84,4 @@ pub mod tape;
 
 pub use dual::Dual;
 pub use multidual::{gradient, MultiDual};
-pub use tape::{reverse_diff, Var};
+pub use tape::{reverse_diff, reverse_gradient, Var};
