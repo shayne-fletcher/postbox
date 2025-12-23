@@ -6,7 +6,7 @@
 //!
 //! - **Forward-mode AD**: Using dual numbers ([`Dual`]) for single-variable functions
 //! - **Multivariable gradients**: Using multi-component dual numbers ([`MultiDual`])
-//! - **Reverse-mode AD**: (planned)
+//! - **Reverse-mode AD**: Using tape-based backpropagation ([`Var`])
 //!
 //! # Single-variable differentiation
 //!
@@ -47,9 +47,27 @@
 //! assert_eq!(grad[0], 14.0);  // ∂f/∂x = 14
 //! assert_eq!(grad[1], 14.0);  // ∂f/∂y = 14
 //! ```
+//!
+//! # Reverse-mode AD
+//!
+//! Use [`reverse_diff`] for reverse-mode (backpropagation):
+//!
+//! ```
+//! use autodiff::{reverse_diff, Var};
+//!
+//! // Define a reusable function
+//! let f = |x: Var<f64>| (x.clone() + 1.0) * (x - 1.0);
+//!
+//! // Evaluate at different points
+//! let (val, deriv) = reverse_diff(f, 3.0);
+//! assert_eq!(val, 8.0);    // f(3) = 8
+//! assert_eq!(deriv, 6.0);  // f'(3) = 2x = 6
+//! ```
 
 pub mod dual;
 pub mod multidual;
+pub mod tape;
 
 pub use dual::Dual;
 pub use multidual::{gradient, MultiDual};
+pub use tape::{reverse_diff, Var};
