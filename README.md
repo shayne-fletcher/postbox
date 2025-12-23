@@ -12,7 +12,7 @@ Algebraic abstractions and computational tools for Rust.
 This workspace contains:
 - **`algebra-core`**: Core algebraic abstractions (Semigroup, Monoid, Group, Semilattice)
 - **`algebra-core-derive`**: Derive macros for algebraic traits
-- **`autodiff`**: Automatic differentiation (forward-mode with dual numbers)
+- **`autodiff`**: Automatic differentiation (forward-mode and reverse-mode)
 - **`postbox`**: Lattice-based state, LVars, MVars, and CRDTs built on algebra-core
 
 ## Getting Started
@@ -70,6 +70,8 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - `Dual<T>`: dual numbers for single-variable forward-mode AD
 - `MultiDual<T, N>`: multi-component dual numbers for computing gradients in a single pass
 - `gradient()`: helper function for computing gradients of f: ℝⁿ → ℝ
+- `Var<T>`: tape-based reverse-mode AD (backpropagation)
+- `reverse_diff()`: helper function for reverse-mode differentiation
 
 ### Lattice types (from `postbox`):
 - `Max<T>`, `Min<T>`: lattice wrappers for max/min
