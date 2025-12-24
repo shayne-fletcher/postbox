@@ -86,10 +86,10 @@
 //! let tape = Tape::new();
 //! let x = tape.var(3.0);
 //! let y = x.clone() * x.clone();  // y = x²
-//! y.backward();
 //!
+//! let grads = y.backward();
 //! assert_eq!(y.value(), 9.0);
-//! assert_eq!(x.grad(), 6.0);  // dy/dx = 2x = 6
+//! assert_eq!(grads.get(&x), 6.0);  // dy/dx = 2x = 6
 //! ```
 
 pub mod dual;
@@ -98,4 +98,4 @@ pub mod tape;
 
 pub use dual::Dual;
 pub use multidual::{gradient, MultiDual};
-pub use tape::{reverse_diff, reverse_gradient, Tape, Var};
+pub use tape::{reverse_diff, reverse_gradient, Gradients, Tape, Var};

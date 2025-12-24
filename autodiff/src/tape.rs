@@ -16,24 +16,26 @@ use std::rc::Rc;
 /// let tape = Tape::new();
 /// let x = tape.var(3.0);
 /// let y = x.clone() * x.clone();  // y = x²
-/// y.backward();
 ///
+/// let grads = y.backward();
 /// assert_eq!(y.value(), 9.0);
-/// assert_eq!(x.grad(), 6.0);  // dy/dx = 2x = 6
+/// assert_eq!(grads.get(&x), 6.0);  // dy/dx = 2x = 6
 /// ```
 #[derive(Clone)]
-pub struct Tape<T: Float> {
+pub struct Tape<T> {
     inner: Rc<RefCell<TapeInner<T>>>,
 }
 
-impl<T: Float> Tape<T> {
+impl<T> Tape<T> {
     /// Creates a new empty tape.
     pub fn new() -> Self {
         Self {
             inner: Rc::new(RefCell::new(TapeInner::new())),
         }
     }
+}
 
+impl<T: Float> Tape<T> {
     /// Creates a differentiable variable on this tape.
     pub fn var(&self, value: T) -> Var<T> {
         let idx = self.inner.borrow_mut().push_value(value);
@@ -81,25 +83,41 @@ impl<T: Float> Tape<T> {
 /// assert_eq!(deriv, 7.0);  // f'(3) = 2x + 1 = 7
 /// ```
 #[derive(Clone)]
-pub struct Var<T: Float> {
+pub struct Var<T> {
     tape: Tape<T>,
     idx: usize,
 }
 
-impl<T: Float> Var<T> {
+impl<T: Copy> Var<T> {
     /// Returns the value of this variable.
     pub fn value(&self) -> T {
         self.tape.inner.borrow().vals[self.idx]
     }
+}
 
-    /// Returns the gradient of this variable after calling [`backward`](Var::backward).
-    pub fn grad(&self) -> T {
-        self.tape.inner.borrow().grads[self.idx]
-    }
-
+impl<T: Float> Var<T> {
     /// Computes gradients by backpropagation from this variable.
-    pub fn backward(&self) {
-        self.tape.inner.borrow_mut().backward_from(self.idx)
+    ///
+    /// Returns a [`Gradients`] object that can be queried for the
+    /// gradient with respect to any variable.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use autodiff::Tape;
+    ///
+    /// let tape = Tape::new();
+    /// let x = tape.var(3.0);
+    /// let y = x.clone() * x.clone();  // y = x²
+    ///
+    /// let grads = y.backward();
+    /// assert_eq!(grads.get(&x), 6.0);  // dy/dx = 2x = 6
+    /// ```
+    pub fn backward(&self) -> Gradients<T> {
+        self.tape.inner.borrow_mut().backward_from(self.idx);
+        Gradients {
+            tape: self.tape.clone(),
+        }
     }
 
     /// Computes the reciprocal `1/self`.
@@ -133,13 +151,27 @@ impl<T: Float> Var<T> {
     }
 }
 
-struct TapeInner<T: Float> {
+/// The gradients computed by [`Var::backward`].
+///
+/// Query individual gradients using [`get`](Gradients::get).
+pub struct Gradients<T> {
+    tape: Tape<T>,
+}
+
+impl<T: Copy> Gradients<T> {
+    /// Returns the gradient with respect to the given variable.
+    pub fn get(&self, var: &Var<T>) -> T {
+        self.tape.inner.borrow().grads[var.idx]
+    }
+}
+
+struct TapeInner<T> {
     vals: Vec<T>,
     grads: Vec<T>,
     ops: Vec<Op>,
 }
 
-impl<T: Float> TapeInner<T> {
+impl<T> TapeInner<T> {
     fn new() -> Self {
         Self {
             vals: Vec::new(),
@@ -148,15 +180,17 @@ impl<T: Float> TapeInner<T> {
         }
     }
 
+    fn push_op(&mut self, op: Op) {
+        self.ops.push(op)
+    }
+}
+
+impl<T: Float> TapeInner<T> {
     fn push_value(&mut self, v: T) -> usize {
         let idx = self.vals.len();
         self.vals.push(v);
         self.grads.push(T::zero());
         idx
-    }
-
-    fn push_op(&mut self, op: Op) {
-        self.ops.push(op)
     }
 
     fn backward_from(&mut self, out: usize) {
@@ -395,8 +429,8 @@ where
     let var = tape.var(x);
     let var_clone = var.clone();
     let result = f(var);
-    result.backward();
-    (result.value(), var_clone.grad())
+    let grads = result.backward();
+    (result.value(), grads.get(&var_clone))
 }
 
 /// Computes the value and gradient of a multivariable function using
@@ -427,10 +461,10 @@ where
     let vars: [Var<T>; N] = std::array::from_fn(|i| tape.var(point[i]));
     let vars_clone = vars.clone();
     let result = f(vars);
-    result.backward();
+    let grads = result.backward();
     (
         result.value(),
-        std::array::from_fn(|i| vars_clone[i].grad()),
+        std::array::from_fn(|i| grads.get(&vars_clone[i])),
     )
 }
 
