@@ -202,6 +202,21 @@ impl<T: Float> Var<T> {
 /// The gradients computed by [`Var::backward`].
 ///
 /// Query individual gradients using [`get`](Gradients::get).
+///
+/// # Example
+///
+/// ```
+/// use autodiff::Tape;
+///
+/// let tape = Tape::new();
+/// let x = tape.var(3.0);
+/// let y = tape.var(4.0);
+/// let z = x.clone() * y.clone();  // z = x * y
+///
+/// let grads = z.backward();
+/// assert_eq!(grads.get(&x), 4.0);  // dz/dx = y
+/// assert_eq!(grads.get(&y), 3.0);  // dz/dy = x
+/// ```
 pub struct Gradients<T> {
     tape: Tape<T>,
 }

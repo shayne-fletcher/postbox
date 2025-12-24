@@ -4,9 +4,11 @@
 //!
 //! This crate provides tools for computing derivatives automatically:
 //!
-//! - **Forward-mode AD**: Using dual numbers ([`Dual`]) for single-variable functions
-//! - **Multivariable gradients**: Using multi-component dual numbers ([`MultiDual`])
-//! - **Reverse-mode AD**: Using tape-based backpropagation ([`Var`])
+//! - **Forward-mode AD**: Using dual numbers ([`Dual`]) for
+//!   single-variable functions
+//! - **Multivariable gradients**: Using multi-component dual numbers
+//!   ([`MultiDual`])
+//! - **Reverse-mode AD**: Using tape-based backpropagation ([`Tape`])
 //!
 //! # Single-variable differentiation
 //!
