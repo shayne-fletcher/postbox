@@ -77,6 +77,20 @@
 //! assert_eq!(grad[0], 10.0);   // ∂f/∂x = 2x + y = 10
 //! assert_eq!(grad[1], 3.0);    // ∂f/∂y = x = 3
 //! ```
+//!
+//! Or use [`Tape`] directly for explicit tape management:
+//!
+//! ```
+//! use autodiff::Tape;
+//!
+//! let tape = Tape::new();
+//! let x = tape.var(3.0);
+//! let y = x.clone() * x.clone();  // y = x²
+//! y.backward();
+//!
+//! assert_eq!(y.value(), 9.0);
+//! assert_eq!(x.grad(), 6.0);  // dy/dx = 2x = 6
+//! ```
 
 pub mod dual;
 pub mod multidual;
@@ -84,4 +98,4 @@ pub mod tape;
 
 pub use dual::Dual;
 pub use multidual::{gradient, MultiDual};
-pub use tape::{reverse_diff, reverse_gradient, Var};
+pub use tape::{reverse_diff, reverse_gradient, Tape, Var};

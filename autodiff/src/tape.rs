@@ -3,6 +3,55 @@ use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::rc::Rc;
 
+/// The computation tape that records operations for reverse-mode AD.
+///
+/// Create a tape with [`Tape::new`], then create variables on it with
+/// [`Tape::var`].
+///
+/// # Examples
+///
+/// ```
+/// use autodiff::Tape;
+///
+/// let tape = Tape::new();
+/// let x = tape.var(3.0);
+/// let y = x.clone() * x.clone();  // y = x²
+/// y.backward();
+///
+/// assert_eq!(y.value(), 9.0);
+/// assert_eq!(x.grad(), 6.0);  // dy/dx = 2x = 6
+/// ```
+#[derive(Clone)]
+pub struct Tape<T: Float> {
+    inner: Rc<RefCell<TapeInner<T>>>,
+}
+
+impl<T: Float> Tape<T> {
+    /// Creates a new empty tape.
+    pub fn new() -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(TapeInner::new())),
+        }
+    }
+
+    /// Creates a differentiable variable on this tape.
+    pub fn var(&self, value: T) -> Var<T> {
+        let idx = self.inner.borrow_mut().push_value(value);
+        Var {
+            tape: self.clone(),
+            idx,
+        }
+    }
+
+    fn constant(&self, value: T) -> Var<T> {
+        let idx = self.inner.borrow_mut().push_value(value);
+        Var {
+            tape: self.clone(),
+            idx,
+        }
+    }
+}
+
 /// A differentiable variable for reverse-mode automatic
 /// differentiation.
 ///
@@ -33,35 +82,24 @@ use std::rc::Rc;
 /// ```
 #[derive(Clone)]
 pub struct Var<T: Float> {
-    tape: Rc<RefCell<Tape<T>>>,
+    tape: Tape<T>,
     idx: usize,
 }
 
 impl<T: Float> Var<T> {
-    pub fn tape() -> Rc<RefCell<Tape<T>>> {
-        Rc::new(RefCell::new(Tape::new()))
-    }
-
-    pub fn variable_on(tape: Rc<RefCell<Tape<T>>>, value: T) -> Self {
-        let idx = tape.borrow_mut().push_value(value);
-        Self { tape, idx }
-    }
-
-    pub fn constant_on(tape: Rc<RefCell<Tape<T>>>, value: T) -> Self {
-        let idx = tape.borrow_mut().push_value(value);
-        Self { tape, idx }
-    }
-
+    /// Returns the value of this variable.
     pub fn value(&self) -> T {
-        self.tape.borrow().vals[self.idx]
+        self.tape.inner.borrow().vals[self.idx]
     }
 
+    /// Returns the gradient of this variable after calling [`backward`](Var::backward).
     pub fn grad(&self) -> T {
-        self.tape.borrow().grads[self.idx]
+        self.tape.inner.borrow().grads[self.idx]
     }
 
+    /// Computes gradients by backpropagation from this variable.
     pub fn backward(&self) {
-        self.tape.borrow_mut().backward_from(self.idx)
+        self.tape.inner.borrow_mut().backward_from(self.idx)
     }
 
     /// Computes the reciprocal `1/self`.
@@ -95,14 +133,13 @@ impl<T: Float> Var<T> {
     }
 }
 
-/// The computation tape that records operations for reverse-mode AD.
-pub struct Tape<T: Float> {
+struct TapeInner<T: Float> {
     vals: Vec<T>,
     grads: Vec<T>,
     ops: Vec<Op>,
 }
 
-impl<T: Float> Tape<T> {
+impl<T: Float> TapeInner<T> {
     fn new() -> Self {
         Self {
             vals: Vec::new(),
@@ -208,12 +245,12 @@ enum OpKind {
 fn unary<T: Float>(x: Var<T>, kind: OpKind, f: impl FnOnce(T) -> T) -> Var<T> {
     let tape = x.tape.clone();
     let outv = {
-        let t = tape.borrow();
+        let t = tape.inner.borrow();
         f(t.vals[x.idx])
     };
 
     let out = {
-        let mut t = tape.borrow_mut();
+        let mut t = tape.inner.borrow_mut();
         let out = t.push_value(outv);
         t.push_op(Op {
             kind,
@@ -228,18 +265,21 @@ fn unary<T: Float>(x: Var<T>, kind: OpKind, f: impl FnOnce(T) -> T) -> Var<T> {
 }
 
 fn binary<T: Float>(lhs: Var<T>, rhs: Var<T>, kind: OpKind, f: impl FnOnce(T, T) -> T) -> Var<T> {
-    assert!(Rc::ptr_eq(&lhs.tape, &rhs.tape), "Vars must share a tape");
+    assert!(
+        Rc::ptr_eq(&lhs.tape.inner, &rhs.tape.inner),
+        "Vars must share a tape"
+    );
     let tape = lhs.tape.clone();
 
     let (a, b, outv) = {
-        let t = tape.borrow();
+        let t = tape.inner.borrow();
         let av = t.vals[lhs.idx];
         let bv = t.vals[rhs.idx];
         (lhs.idx, rhs.idx, f(av, bv))
     };
 
     let out = {
-        let mut t = tape.borrow_mut();
+        let mut t = tape.inner.borrow_mut();
         let out = t.push_value(outv);
         t.push_op(Op { kind, out, a, b });
         out
@@ -286,7 +326,7 @@ impl<T: Float> Neg for Var<T> {
 impl<T: Float> Add<T> for Var<T> {
     type Output = Var<T>;
     fn add(self, c: T) -> Self::Output {
-        let cvar = Var::constant_on(self.tape.clone(), c);
+        let cvar = self.tape.constant(c);
         self + cvar
     }
 }
@@ -294,7 +334,7 @@ impl<T: Float> Add<T> for Var<T> {
 impl<T: Float> Sub<T> for Var<T> {
     type Output = Var<T>;
     fn sub(self, c: T) -> Self::Output {
-        let cvar = Var::constant_on(self.tape.clone(), c);
+        let cvar = self.tape.constant(c);
         self - cvar
     }
 }
@@ -302,7 +342,7 @@ impl<T: Float> Sub<T> for Var<T> {
 impl<T: Float> Mul<T> for Var<T> {
     type Output = Var<T>;
     fn mul(self, c: T) -> Self::Output {
-        let cvar = Var::constant_on(self.tape.clone(), c);
+        let cvar = self.tape.constant(c);
         self * cvar
     }
 }
@@ -310,7 +350,7 @@ impl<T: Float> Mul<T> for Var<T> {
 impl<T: Float> Div<T> for Var<T> {
     type Output = Var<T>;
     fn div(self, c: T) -> Self::Output {
-        let cvar = Var::constant_on(self.tape.clone(), c);
+        let cvar = self.tape.constant(c);
         self / cvar
     }
 }
@@ -351,18 +391,19 @@ where
     T: Float,
     F: FnOnce(Var<T>) -> Var<T>,
 {
-    let tape = Var::<T>::tape();
-    let var = Var::variable_on(tape, x);
+    let tape = Tape::new();
+    let var = tape.var(x);
     let var_clone = var.clone();
     let result = f(var);
     result.backward();
     (result.value(), var_clone.grad())
 }
 
-/// Computes the value and gradient of a multivariable function using reverse-mode AD.
+/// Computes the value and gradient of a multivariable function using
+/// reverse-mode AD.
 ///
-/// This is the reverse-mode equivalent of [`gradient`](crate::gradient) for
-/// functions f: ℝⁿ → ℝ.
+/// This is the reverse-mode equivalent of
+/// [`gradient`](crate::gradient) for functions f: ℝⁿ → ℝ.
 ///
 /// # Examples
 ///
@@ -382,8 +423,8 @@ where
     T: Float,
     F: FnOnce([Var<T>; N]) -> Var<T>,
 {
-    let tape = Var::<T>::tape();
-    let vars: [Var<T>; N] = std::array::from_fn(|i| Var::variable_on(tape.clone(), point[i]));
+    let tape = Tape::new();
+    let vars: [Var<T>; N] = std::array::from_fn(|i| tape.var(point[i]));
     let vars_clone = vars.clone();
     let result = f(vars);
     result.backward();
