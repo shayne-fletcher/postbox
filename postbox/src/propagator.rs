@@ -64,7 +64,7 @@ use algebra_core::{MonoidHom, Semigroup};
 /// system:
 ///
 /// - **Storage layer (runtime)**: Cells stored as `Box<dyn Any>`
-///    (type-erased)
+///   (type-erased)
 /// - **API layer (compile-time)**: `CellId<S>` carries the type
 ///   information
 ///
