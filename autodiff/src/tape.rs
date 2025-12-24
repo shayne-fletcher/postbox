@@ -1,3 +1,51 @@
+//! Tape-based reverse-mode automatic differentiation.
+//!
+//! Reverse-mode AD computes gradients by recording operations during
+//! a forward pass, then propagating gradients backward through the
+//! recorded tape. This is efficient for functions f: ℝⁿ → ℝ where n
+//! is large (e.g., neural networks with millions of parameters).
+//!
+//! # How It Works
+//!
+//! 1. Create a [`Tape`] to record operations
+//! 2. Create variables with [`Tape::var`]
+//! 3. Compute using arithmetic operations (recorded on the tape)
+//! 4. Call [`Var::backward`] to propagate gradients
+//! 5. Query gradients with [`Gradients::get`]
+//!
+//! # Example
+//!
+//! ```
+//! use autodiff::Tape;
+//!
+//! let tape = Tape::new();
+//! let x = tape.var(3.0);
+//! let y = x.clone() * x.clone();  // y = x²
+//!
+//! let grads = y.backward();
+//! assert_eq!(y.value(), 9.0);
+//! assert_eq!(grads.get(&x), 6.0);  // dy/dx = 2x = 6
+//! ```
+//!
+//! # Functional API
+//!
+//! For simple cases, use [`reverse_diff`] or [`reverse_gradient`]:
+//!
+//! ```
+//! use autodiff::reverse_diff;
+//!
+//! let (val, deriv) = reverse_diff(|x| x.clone() * x, 3.0);
+//! assert_eq!(val, 9.0);
+//! assert_eq!(deriv, 6.0);
+//! ```
+//!
+//! # When to Use Reverse-Mode
+//!
+//! - **Reverse-mode** (this module): Efficient when outputs << inputs
+//!   (e.g., loss function with many parameters)
+//! - **Forward-mode** ([`crate::dual`]): Efficient when inputs <<
+//!   outputs (e.g., sensitivity of many outputs to one parameter)
+
 use num_traits::Float;
 use std::cell::RefCell;
 use std::ops::{Add, Div, Mul, Neg, Sub};
