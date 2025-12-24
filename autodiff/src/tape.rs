@@ -392,3 +392,403 @@ where
         std::array::from_fn(|i| vars_clone[i].grad()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // === Basic operations ===
+
+    #[test]
+    fn addition_works() {
+        // f(x) = x + 5 at x=3
+        let (val, deriv) = reverse_diff(|x| x + 5.0, 3.0);
+        assert_eq!(val, 8.0);
+        assert_eq!(deriv, 1.0);
+    }
+
+    #[test]
+    fn subtraction_works() {
+        // f(x) = x - 2 at x=5
+        let (val, deriv) = reverse_diff(|x| x - 2.0, 5.0);
+        assert_eq!(val, 3.0);
+        assert_eq!(deriv, 1.0);
+    }
+
+    #[test]
+    fn multiplication_works() {
+        // f(x) = x * x = x² at x=3
+        let (val, deriv) = reverse_diff(|x| x.clone() * x, 3.0);
+        assert_eq!(val, 9.0);
+        assert_eq!(deriv, 6.0); // d/dx(x²) = 2x = 6
+    }
+
+    #[test]
+    fn division_works() {
+        // f(x) = x / 2 at x=6
+        let (val, deriv) = reverse_diff(|x| x / 2.0, 6.0);
+        assert_eq!(val, 3.0);
+        assert_eq!(deriv, 0.5); // d/dx(x/2) = 0.5
+    }
+
+    #[test]
+    fn negation_works() {
+        // f(x) = -x at x=3
+        let (val, deriv) = reverse_diff(|x| -x, 3.0);
+        assert_eq!(val, -3.0);
+        assert_eq!(deriv, -1.0);
+    }
+
+    // === Var-Var operations ===
+
+    #[test]
+    fn var_var_addition() {
+        // f(x) = x + x = 2x at x=3
+        let (val, deriv) = reverse_diff(|x| x.clone() + x, 3.0);
+        assert_eq!(val, 6.0);
+        assert_eq!(deriv, 2.0);
+    }
+
+    #[test]
+    fn var_var_subtraction() {
+        // f(x) = x - x = 0 at x=3
+        let (val, deriv) = reverse_diff(|x| x.clone() - x, 3.0);
+        assert_eq!(val, 0.0);
+        assert_eq!(deriv, 0.0);
+    }
+
+    #[test]
+    fn var_var_division() {
+        // f(x) = x / x = 1 at x=3
+        // f'(x) = 0 (derivative of constant 1)
+        let (val, deriv) = reverse_diff(|x| x.clone() / x, 3.0);
+        assert_eq!(val, 1.0);
+        assert!((deriv - 0.0).abs() < 1e-10);
+    }
+
+    // === Scalar operations (Var op T) ===
+
+    #[test]
+    fn var_add_scalar() {
+        let (val, deriv) = reverse_diff(|x| x + 10.0, 5.0);
+        assert_eq!(val, 15.0);
+        assert_eq!(deriv, 1.0);
+    }
+
+    #[test]
+    fn var_sub_scalar() {
+        let (val, deriv) = reverse_diff(|x| x - 3.0, 10.0);
+        assert_eq!(val, 7.0);
+        assert_eq!(deriv, 1.0);
+    }
+
+    #[test]
+    fn var_mul_scalar() {
+        let (val, deriv) = reverse_diff(|x| x * 3.0, 4.0);
+        assert_eq!(val, 12.0);
+        assert_eq!(deriv, 3.0);
+    }
+
+    #[test]
+    fn var_div_scalar() {
+        let (val, deriv) = reverse_diff(|x| x / 4.0, 12.0);
+        assert_eq!(val, 3.0);
+        assert_eq!(deriv, 0.25);
+    }
+
+    // === Unary functions ===
+
+    #[test]
+    fn recip_works() {
+        // f(x) = 1/x at x=2
+        let (val, deriv) = reverse_diff(|x| x.recip(), 2.0);
+        assert_eq!(val, 0.5);
+        assert_eq!(deriv, -0.25); // d/dx(1/x) = -1/x² = -0.25
+    }
+
+    #[test]
+    fn exp_works() {
+        // f(x) = e^x at x=0
+        let (val, deriv) = reverse_diff(|x| x.exp(), 0.0);
+        assert_eq!(val, 1.0);
+        assert_eq!(deriv, 1.0); // d/dx(e^x) = e^x = 1 at x=0
+    }
+
+    #[test]
+    fn exp_at_one() {
+        // f(x) = e^x at x=1
+        let (val, deriv) = reverse_diff(|x| x.exp(), 1.0);
+        let e = 1.0_f64.exp();
+        assert!((val - e).abs() < 1e-10);
+        assert!((deriv - e).abs() < 1e-10);
+    }
+
+    #[test]
+    fn sin_works() {
+        // f(x) = sin(x) at x=0
+        let (val, deriv) = reverse_diff(|x| x.sin(), 0.0);
+        assert_eq!(val, 0.0);
+        assert_eq!(deriv, 1.0); // cos(0) = 1
+    }
+
+    #[test]
+    fn cos_works() {
+        // f(x) = cos(x) at x=0
+        let (val, deriv) = reverse_diff(|x| x.cos(), 0.0);
+        assert_eq!(val, 1.0);
+        assert_eq!(deriv, 0.0); // -sin(0) = 0
+    }
+
+    #[test]
+    fn ln_works() {
+        // f(x) = ln(x) at x=1
+        let (val, deriv) = reverse_diff(|x| x.ln(), 1.0);
+        assert_eq!(val, 0.0);
+        assert_eq!(deriv, 1.0); // 1/x = 1 at x=1
+    }
+
+    #[test]
+    fn ln_at_e() {
+        // f(x) = ln(x) at x=e
+        let e = 1.0_f64.exp();
+        let (val, deriv) = reverse_diff(|x| x.ln(), e);
+        assert!((val - 1.0).abs() < 1e-10);
+        assert!((deriv - 1.0 / e).abs() < 1e-10);
+    }
+
+    #[test]
+    fn sqrt_works() {
+        // f(x) = √x at x=4
+        let (val, deriv) = reverse_diff(|x| x.sqrt(), 4.0);
+        assert_eq!(val, 2.0);
+        assert_eq!(deriv, 0.25); // 1/(2√x) = 1/4
+    }
+
+    // === Fan-out (variable used multiple times) ===
+
+    #[test]
+    fn fan_out_addition() {
+        // f(x) = x + x + x = 3x at x=2
+        let (val, deriv) = reverse_diff(|x| x.clone() + x.clone() + x, 2.0);
+        assert_eq!(val, 6.0);
+        assert_eq!(deriv, 3.0);
+    }
+
+    #[test]
+    fn fan_out_mixed() {
+        // f(x) = x² + x at x=3
+        // f'(x) = 2x + 1 = 7
+        let (val, deriv) = reverse_diff(|x| x.clone() * x.clone() + x, 3.0);
+        assert_eq!(val, 12.0);
+        assert_eq!(deriv, 7.0);
+    }
+
+    #[test]
+    fn fan_out_product() {
+        // f(x) = x * x * x = x³ at x=2
+        // f'(x) = 3x² = 12
+        let (val, deriv) = reverse_diff(|x| x.clone() * x.clone() * x, 2.0);
+        assert_eq!(val, 8.0);
+        assert_eq!(deriv, 12.0);
+    }
+
+    // === Complex expressions ===
+
+    #[test]
+    fn polynomial() {
+        // f(x) = x³ - 2x + 1 at x=2
+        // f'(x) = 3x² - 2 = 10
+        let (val, deriv) = reverse_diff(
+            |x| {
+                let x2 = x.clone() * x.clone();
+                let x3 = x2 * x.clone();
+                x3 - x * 2.0 + 1.0
+            },
+            2.0,
+        );
+        assert_eq!(val, 5.0);
+        assert_eq!(deriv, 10.0);
+    }
+
+    #[test]
+    fn quotient_rule() {
+        // f(x) = (x+1)/(x+2) at x=3
+        // f(3) = 4/5 = 0.8
+        // f'(x) = 1/(x+2)² = 1/25 = 0.04
+        let (val, deriv) = reverse_diff(
+            |x| {
+                let num = x.clone() + 1.0;
+                let den = x + 2.0;
+                num / den
+            },
+            3.0,
+        );
+        assert_eq!(val, 0.8);
+        assert!((deriv - 0.04).abs() < 1e-10);
+    }
+
+    #[test]
+    fn chain_rule_product() {
+        // f(x) = (x+1)(x-1) = x² - 1 at x=3
+        // f'(x) = 2x = 6
+        let (val, deriv) = reverse_diff(|x| (x.clone() + 1.0) * (x - 1.0), 3.0);
+        assert_eq!(val, 8.0);
+        assert_eq!(deriv, 6.0);
+    }
+
+    #[test]
+    fn chain_rule_transcendental() {
+        // f(x) = sin(2x) at x=0
+        // f'(x) = 2*cos(2x) = 2 at x=0
+        let (val, deriv) = reverse_diff(|x| (x * 2.0).sin(), 0.0);
+        assert_eq!(val, 0.0);
+        assert_eq!(deriv, 2.0);
+    }
+
+    #[test]
+    fn exp_of_square() {
+        // f(x) = e^(x²) at x=1
+        // f'(x) = 2x * e^(x²) = 2e at x=1
+        let (val, deriv) = reverse_diff(|x| (x.clone() * x).exp(), 1.0);
+        let e = 1.0_f64.exp();
+        assert!((val - e).abs() < 1e-10);
+        assert!((deriv - 2.0 * e).abs() < 1e-10);
+    }
+
+    #[test]
+    fn ln_of_square() {
+        // f(x) = ln(x²) = 2*ln(x) at x=e
+        // f'(x) = 2/x
+        let e = 1.0_f64.exp();
+        let (val, deriv) = reverse_diff(|x| (x.clone() * x).ln(), e);
+        assert!((val - 2.0).abs() < 1e-10);
+        assert!((deriv - 2.0 / e).abs() < 1e-10);
+    }
+
+    #[test]
+    fn sqrt_of_sum() {
+        // f(x) = √(x+5) at x=4
+        // f'(x) = 1/(2√(x+5)) = 1/6
+        let (val, deriv) = reverse_diff(|x| (x + 5.0).sqrt(), 4.0);
+        assert_eq!(val, 3.0);
+        assert!((deriv - 1.0 / 6.0).abs() < 1e-10);
+    }
+
+    // === reverse_gradient tests ===
+
+    #[test]
+    fn gradient_sum() {
+        // f(x, y) = x + y at (3, 4)
+        // ∂f/∂x = 1, ∂f/∂y = 1
+        let (val, grad) = reverse_gradient(|[x, y]| x + y, [3.0, 4.0]);
+        assert_eq!(val, 7.0);
+        assert_eq!(grad, [1.0, 1.0]);
+    }
+
+    #[test]
+    fn gradient_product() {
+        // f(x, y) = x * y at (3, 4)
+        // ∂f/∂x = y = 4, ∂f/∂y = x = 3
+        let (val, grad) = reverse_gradient(|[x, y]| x * y, [3.0, 4.0]);
+        assert_eq!(val, 12.0);
+        assert_eq!(grad, [4.0, 3.0]);
+    }
+
+    #[test]
+    fn gradient_mixed() {
+        // f(x, y) = x² + x*y at (3, 4)
+        // ∂f/∂x = 2x + y = 10, ∂f/∂y = x = 3
+        let (val, grad) = reverse_gradient(|[x, y]| x.clone() * x.clone() + x * y, [3.0, 4.0]);
+        assert_eq!(val, 21.0);
+        assert_eq!(grad, [10.0, 3.0]);
+    }
+
+    #[test]
+    fn gradient_three_vars() {
+        // f(x, y, z) = x*y + y*z + z*x at (1, 2, 3)
+        // f = 2 + 6 + 3 = 11
+        // ∂f/∂x = y + z = 5
+        // ∂f/∂y = x + z = 4
+        // ∂f/∂z = y + x = 3
+        let (val, grad) = reverse_gradient(
+            |[x, y, z]| x.clone() * y.clone() + y.clone() * z.clone() + z * x,
+            [1.0, 2.0, 3.0],
+        );
+        assert_eq!(val, 11.0);
+        assert_eq!(grad, [5.0, 4.0, 3.0]);
+    }
+
+    #[test]
+    fn gradient_with_transcendental() {
+        // f(x, y) = sin(x) * cos(y) at (0, 0)
+        // f = 0 * 1 = 0
+        // ∂f/∂x = cos(x) * cos(y) = 1
+        // ∂f/∂y = sin(x) * (-sin(y)) = 0
+        let (val, grad) = reverse_gradient(|[x, y]| x.sin() * y.cos(), [0.0, 0.0]);
+        assert_eq!(val, 0.0);
+        assert_eq!(grad, [1.0, 0.0]);
+    }
+
+    // === Reusable function pattern ===
+
+    #[test]
+    fn reusable_function() {
+        let f = |x: Var<f64>| x.clone() * x.clone() + x * 2.0;
+
+        // Evaluate at multiple points
+        let (v1, d1) = reverse_diff(f, 3.0);
+        assert_eq!(v1, 15.0); // 9 + 6
+        assert_eq!(d1, 8.0); // 2*3 + 2
+
+        let (v2, d2) = reverse_diff(f, 5.0);
+        assert_eq!(v2, 35.0); // 25 + 10
+        assert_eq!(d2, 12.0); // 2*5 + 2
+
+        let (v3, d3) = reverse_diff(f, 0.0);
+        assert_eq!(v3, 0.0);
+        assert_eq!(d3, 2.0);
+    }
+
+    // === Comparison with forward-mode ===
+
+    #[test]
+    fn matches_forward_mode_polynomial() {
+        // Verify reverse-mode matches forward-mode for x³ + 2x² - x at x=2
+        use crate::dual::Dual;
+
+        let forward = {
+            let x = Dual::variable(2.0);
+            let y = x * x * x + Dual::constant(2.0) * x * x - x;
+            (y.value, y.deriv)
+        };
+
+        let reverse = reverse_diff(
+            |x| {
+                let x2 = x.clone() * x.clone();
+                let x3 = x2.clone() * x.clone();
+                x3 + x2 * 2.0 - x
+            },
+            2.0,
+        );
+
+        assert_eq!(forward.0, reverse.0);
+        assert!((forward.1 - reverse.1).abs() < 1e-10);
+    }
+
+    #[test]
+    fn matches_forward_mode_transcendental() {
+        // Verify reverse-mode matches forward-mode for e^(sin(x)) at x=1
+        use crate::dual::Dual;
+
+        let forward = {
+            let x = Dual::variable(1.0);
+            let y = x.sin().exp();
+            (y.value, y.deriv)
+        };
+
+        let reverse = reverse_diff(|x| x.sin().exp(), 1.0);
+
+        assert!((forward.0 - reverse.0).abs() < 1e-10);
+        assert!((forward.1 - reverse.1).abs() < 1e-10);
+    }
+}
