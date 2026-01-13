@@ -182,19 +182,103 @@ $$
 
 ## Extending the primitive set
 
-Additional operations (negation, division, transcendental functions)
-are handled by supplying their local partial derivatives and applying
-the same reverse accumulation pattern.
+Additional operations (negation, division, transcendental functions) are
+handled by supplying their **local partial derivatives** and applying the
+same reverse accumulation rule.
+
+No changes to the reverse-mode algorithm are required.
+
+---
+
+### General unary rule
+
+For a unary operation:
+
+$$
+x_i = f(x_j)
+$$
+
+the reverse-mode update is:
+
+$$
+\bar{x}_j \;{+}{=}\; \bar{x}_i \cdot \frac{\partial x_i}{\partial x_j}
+$$
+
+The local derivative is evaluated using values already computed during
+the forward pass.
+
+---
+
+### Example: exponential
+
+Consider the tape node:
+
+$$
+x_i = \exp(x_j)
+$$
+
+#### Forward pass
+
+During forward execution we compute and store:
+
+$$
+x_i = \exp(x_j)
+$$
+
+#### Backward pass invariant
+
+When we reach this node in the reverse sweep, the adjoint
+$\bar{x}_i = \partial y / \partial x_i$ is already known.
+
+#### Local derivative
+
+The local partial derivative is:
+
+$$
+\frac{\partial x_i}{\partial x_j} = \exp(x_j)
+$$
+
+Since $x_i = \exp(x_j)$ was already computed, we reuse it:
+
+$$
+\frac{\partial x_i}{\partial x_j} = x_i
+$$
+
+#### Reverse accumulation
+
+Applying the unary reverse rule:
+
+$$
+\boxed{
+\bar{x}_j \;{+}{=}\; \bar{x}_i \cdot x_i
+}
+$$
+
+This is the complete backpropagation rule for `exp`.
+
+---
+
+### Remarks
+
+- No symbolic differentiation is performed during backpropagation.
+- The exponential is evaluated only once, during the forward pass.
+- Reverse-mode AD reuses the stored primal value to compute the gradient.
+- This pattern applies uniformly to all unary primitives.
 
 For example:
 
-- Negation: `out = -a`
-  $$ \bar{a} += \bar{out} \cdot (-1) $$
+- Negation: `x_i = -x_j`
+  $$
+  \bar{x}_j \;{+}{=}\; -\bar{x}_i
+  $$
 
-- Sine: `out = sin(a)`
-  $$ \bar{a} += \bar{out} \cdot \cos(a) $$
+- Sine: `x_i = \sin(x_j)`
+  $$
+  \bar{x}_j \;{+}{=}\; \bar{x}_i \cdot \cos(x_j)
+  $$
 
-No changes to the algorithm are required.
+Each new primitive is added by specifying its local derivative and
+plugging it into the same reverse accumulation rule.
 
 ---
 
