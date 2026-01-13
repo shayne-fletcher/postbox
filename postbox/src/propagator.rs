@@ -1,4 +1,5 @@
-//! Propagator networks for accumulative computation with algebraic cells.
+//! Propagator networks for accumulative computation with algebraic
+//! cells.
 //!
 //! A **propagator** is a computational model where:
 //!
@@ -10,9 +11,9 @@
 //!   scheduled
 //! - The system runs until reaching a fixed point (no more changes)
 //!
-//! For lattices (ordered semigroups), accumulation means **monotonic growth**.
-//! For general semigroups, it means **one-way combination** (e.g., string
-//! concatenation, gradient accumulation).
+//! For lattices (ordered semigroups), accumulation means **monotonic
+//! growth**. For general semigroups, it means **one-way combination**
+//! (e.g., string concatenation, gradient accumulation).
 //!
 //! This builds on the [`lvar`](crate::lvar) foundation, extending
 //! individual accumulative cells to networks of interconnected
@@ -59,8 +60,8 @@ use algebra_core::{MonoidHom, Semigroup};
 ///
 /// Propagator networks need to store cells with heterogeneous types
 /// (e.g., `Cell<Max<i32>>`, `Cell<HashSet<String>>`, etc.) in the
-/// same container.
-/// This is accomplished through a two-layer type system:
+/// same container. This is accomplished through a two-layer type
+/// system:
 ///
 /// - **Storage layer (runtime)**: Cells stored as `Box<dyn Any>`
 ///   (type-erased)
@@ -98,9 +99,10 @@ pub struct CellId<S> {
     _phantom: PhantomData<S>,
 }
 
-// Manually implement Clone and Copy. CellId is Copy regardless of whether S
-// is Copy, since it only contains a usize and PhantomData (both always Copy).
-// The derived implementations would incorrectly require S: Clone/Copy.
+// Manually implement Clone and Copy. CellId is Copy regardless of
+// whether S is Copy, since it only contains a usize and PhantomData
+// (both always Copy). The derived implementations would incorrectly
+// require S: Clone/Copy.
 impl<S> Clone for CellId<S> {
     fn clone(&self) -> Self {
         *self
@@ -112,8 +114,9 @@ impl<S> Copy for CellId<S> {}
 impl<S> CellId<S> {
     /// Create a new cell ID from a raw integer.
     ///
-    /// This is typically called internally by the network when creating cells.
-    /// The type parameter `S` captures what semigroup type this cell holds.
+    /// This is typically called internally by the network when
+    /// creating cells. The type parameter `S` captures what semigroup
+    /// type this cell holds.
     ///
     /// # Example
     ///

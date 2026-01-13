@@ -4,9 +4,11 @@
 //!
 //! This crate provides tools for computing derivatives automatically:
 //!
-//! - **Forward-mode AD**: Using dual numbers ([`Dual`]) for single-variable functions
-//! - **Multivariable gradients**: Using multi-component dual numbers ([`MultiDual`])
-//! - **Reverse-mode AD**: (planned)
+//! - **Forward-mode AD**: Using dual numbers ([`Dual`]) for
+//!   single-variable functions
+//! - **Multivariable gradients**: Using multi-component dual numbers
+//!   ([`MultiDual`])
+//! - **Reverse-mode AD**: Using tape-based backpropagation ([`Tape`])
 //!
 //! # Single-variable differentiation
 //!
@@ -47,9 +49,55 @@
 //! assert_eq!(grad[0], 14.0);  // ∂f/∂x = 14
 //! assert_eq!(grad[1], 14.0);  // ∂f/∂y = 14
 //! ```
+//!
+//! # Reverse-mode AD
+//!
+//! Use [`reverse_diff`] for single-variable reverse-mode (backpropagation):
+//!
+//! ```
+//! use autodiff::{reverse_diff, Var};
+//!
+//! // Define a reusable function
+//! let f = |x: Var<f64>| (x.clone() + 1.0) * (x - 1.0);
+//!
+//! // Evaluate at different points
+//! let (val, deriv) = reverse_diff(f, 3.0);
+//! assert_eq!(val, 8.0);    // f(3) = 8
+//! assert_eq!(deriv, 6.0);  // f'(3) = 2x = 6
+//! ```
+//!
+//! Use [`reverse_gradient`] for multivariable functions:
+//!
+//! ```
+//! use autodiff::{reverse_gradient, Var};
+//!
+//! // f(x, y) = x² + x*y
+//! let f = |[x, y]: [Var<f64>; 2]| x.clone() * x.clone() + x * y;
+//!
+//! let (val, grad) = reverse_gradient(f, [3.0, 4.0]);
+//! assert_eq!(val, 21.0);       // f(3, 4) = 21
+//! assert_eq!(grad[0], 10.0);   // ∂f/∂x = 2x + y = 10
+//! assert_eq!(grad[1], 3.0);    // ∂f/∂y = x = 3
+//! ```
+//!
+//! Or use [`Tape`] directly for explicit tape management:
+//!
+//! ```
+//! use autodiff::Tape;
+//!
+//! let tape = Tape::new();
+//! let x = tape.var(3.0);
+//! let y = x.clone() * x.clone();  // y = x²
+//!
+//! let grads = y.backward();
+//! assert_eq!(y.value(), 9.0);
+//! assert_eq!(grads.get(&x), 6.0);  // dy/dx = 2x = 6
+//! ```
 
 pub mod dual;
 pub mod multidual;
+pub mod tape;
 
 pub use dual::Dual;
 pub use multidual::{gradient, MultiDual};
+pub use tape::{reverse_diff, reverse_gradient, Gradients, Tape, Var};
