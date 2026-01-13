@@ -34,9 +34,10 @@
 //!   add/remove sets.
 //!
 //! - [`crate::crdt::LWW`]:
-//!   a **Last-Writer-Wins register** lattice storing `(value, ts)`
+//!   a **Last-Writer-Wins register** lattice storing `(value, ts, replica)`
 //!   and resolving conflicts by picking the value with the larger
-//!   timestamp.
+//!   timestamp; equal timestamps use replica ID as a tiebreaker to
+//!   ensure commutativity.
 //!
 //! - [`crate::crdt::MVRegister`]:
 //!   a **Multi-Value Register** that keeps all values written at the
@@ -718,29 +719,41 @@ where
 
 /// A **Last-Writer-Wins register** lattice.
 ///
-/// The state is a pair `(value, ts)` where `ts` is a logical
-/// timestamp (e.g. Lamport clock, HLC, or monotone counter). Lattice
-/// ordering is by timestamp: on join, the value with the **larger
-/// timestamp** wins, and ties are broken deterministically in favor
-/// of the left-hand operand.
+/// The state is a triple `(value, ts, replica)` where `ts` is a logical
+/// timestamp (e.g. Lamport clock, HLC, or monotone counter) and `replica`
+/// is a unique replica identifier. Lattice ordering is by timestamp first,
+/// with replica ID as a tiebreaker: on join, the value with the **larger
+/// timestamp** wins; if timestamps are equal, the **larger replica ID** wins.
 ///
-/// This makes `LWW<T>` a simple register-style lattice that can be
-/// used as the payload in higher-level CRDTs or in `Option<LWW<T>>`
+/// This deterministic tiebreaker ensures commutativity of the join operation
+/// even when concurrent writes occur at the same timestamp.
+///
+/// This makes `LWW<T, Id>` a simple register-style lattice that can be
+/// used as the payload in higher-level CRDTs or in `Option<LWW<T, Id>>`
 /// when a true bottom element is needed.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LWW<T> {
+pub struct LWW<T, Id = u64> {
     /// The current value of the register.
     pub value: T,
     /// The logical timestamp associated with this value.
     pub ts: u64,
+    /// The replica ID that wrote this value (used as tiebreaker).
+    pub replica: Id,
 }
 
-impl<T: Clone> JoinSemilattice for LWW<T> {
+impl<T: Clone, Id: Clone + Ord> JoinSemilattice for LWW<T, Id> {
     fn join(&self, other: &Self) -> Self {
-        if other.ts > self.ts {
-            other.clone()
-        } else {
-            self.clone()
+        match other.ts.cmp(&self.ts) {
+            std::cmp::Ordering::Greater => other.clone(),
+            std::cmp::Ordering::Less => self.clone(),
+            std::cmp::Ordering::Equal => {
+                // Tiebreaker: larger replica ID wins (ensures commutativity)
+                if other.replica > self.replica {
+                    other.clone()
+                } else {
+                    self.clone()
+                }
+            }
         }
     }
 }
@@ -1140,10 +1153,12 @@ mod tests {
         let old = LWW {
             value: "old",
             ts: 5,
+            replica: 1,
         };
         let new = LWW {
             value: "new",
             ts: 10,
+            replica: 2,
         };
 
         let joined = old.join(&new);
@@ -1154,8 +1169,16 @@ mod tests {
 
     #[test]
     fn lww_join_is_commutative_and_idempotent() {
-        let a = LWW { value: "a", ts: 7 };
-        let b = LWW { value: "b", ts: 3 };
+        let a = LWW {
+            value: "a",
+            ts: 7,
+            replica: 1,
+        };
+        let b = LWW {
+            value: "b",
+            ts: 3,
+            replica: 2,
+        };
 
         // Commutative: a ⊔ b == b ⊔ a
         let ab = a.join(&b);
@@ -1165,6 +1188,32 @@ mod tests {
         // Idempotent: a ⊔ a == a
         let aa = a.join(&a);
         assert_eq!(aa, a);
+    }
+
+    #[test]
+    fn lww_equal_timestamps_uses_replica_tiebreaker() {
+        // When timestamps are equal, larger replica ID wins
+        let a = LWW {
+            value: "a",
+            ts: 5,
+            replica: 1,
+        };
+        let b = LWW {
+            value: "b",
+            ts: 5,
+            replica: 2,
+        };
+
+        // b has larger replica, so b wins regardless of join order
+        let ab = a.join(&b);
+        let ba = b.join(&a);
+
+        assert_eq!(
+            ab, ba,
+            "join must be commutative even with equal timestamps"
+        );
+        assert_eq!(ab.value, "b");
+        assert_eq!(ab.replica, 2);
     }
 
     #[test]
@@ -1295,11 +1344,19 @@ mod tests {
 
     #[test]
     fn lww_value_and_timestamp() {
-        let r1 = LWW { value: 42, ts: 10 };
+        let r1 = LWW {
+            value: 42,
+            ts: 10,
+            replica: 1,
+        };
         assert_eq!(r1.value, 42);
         assert_eq!(r1.ts, 10);
 
-        let r2 = LWW { value: 99, ts: 5 };
+        let r2 = LWW {
+            value: 99,
+            ts: 5,
+            replica: 2,
+        };
         let j = r1.join(&r2);
         assert_eq!(j.value, 42); // Newer timestamp wins
         assert_eq!(j.ts, 10);

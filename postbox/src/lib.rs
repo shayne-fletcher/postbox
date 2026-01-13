@@ -14,7 +14,7 @@
 //!   - [`crdt::GSet`]: grow-only set
 //!   - [`crdt::TwoPSet`]: two-phase set (add + remove, no re-add)
 //!   - [`crdt::ORSet`]: observed-remove set (supports re-add)
-//!   - [`crdt::LWW`]: last-writer-wins register
+//!   - [`crdt::LWW`]: last-writer-wins register (with replica ID tiebreaker)
 //!   - [`crdt::MVRegister`]: multi-value register (keeps all
 //!     concurrent writes)
 //! - [`lvar`] *(feature = "async")*: an **LVar-style** cell whose

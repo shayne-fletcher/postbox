@@ -99,7 +99,7 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 - `GSet<T>`: grow-only CRDT set
 - `TwoPSet<T>`: two-phase set (add + remove, but no re-add after remove)
 - `ORSet<Id, T>`: observed-remove set (supports re-adding after remove)
-- `LWW<T>`: last-writer-wins register
+- `LWW<T, Id>`: last-writer-wins register (with replica ID tiebreaker)
 - `MVRegister<T, Ts, Id>`: multi-value register (keeps all concurrent writes)
 
 ### Stream extensions (from `postbox`):
