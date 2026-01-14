@@ -25,8 +25,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::sync::watch;
 
-use crate::join_semilattice::BoundedJoinSemilattice;
-use crate::join_semilattice::JoinSemilattice;
+use crate::lattice::BoundedJoinSemilattice;
+use crate::lattice::JoinSemilattice;
 
 /// A monotone cell (LVar): state only increases via lattice `join`.
 pub struct LVar<L>
@@ -150,7 +150,7 @@ where
 #[cfg(all(test, feature = "async"))]
 mod tests {
     use super::*;
-    use crate::join_semilattice::Max;
+    use crate::lattice::Max;
     use std::collections::HashSet;
     use std::time::Duration;
     use tokio::time::timeout;

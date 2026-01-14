@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use futures::Stream;
 use futures::StreamExt;
 
-use crate::join_semilattice::BoundedJoinSemilattice;
-use crate::join_semilattice::JoinSemilattice;
+use crate::lattice::BoundedJoinSemilattice;
+use crate::lattice::JoinSemilattice;
 
 /// Extension trait for folding `Stream`s of lattice values.
 ///
@@ -82,7 +82,7 @@ where
 #[cfg(all(test, feature = "async"))]
 mod tests {
     use super::*;
-    use crate::join_semilattice::BoundedJoinSemilattice;
+    use crate::lattice::BoundedJoinSemilattice;
     use futures::stream;
     use std::collections::HashSet;
 

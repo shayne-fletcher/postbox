@@ -5,8 +5,8 @@
 //!
 //! Core pieces:
 //!
-//! - [`join_semilattice`]: traits and helpers for
-//!   **join-semilattices**
+//! - [`lattice`]: traits and helpers for
+//!   **lattices** (join, meet, and bounded variants)
 //! - [`crdt`]: classic **state-based CRDTs** built on those lattices:
 //!   - [`crdt::GCounter`]: grow-only counter
 //!   - [`crdt::PNCounter`]: increment/decrement counter built from
@@ -36,6 +36,10 @@
 //! - If a bottom element ⊥ exists, implement
 //!   [`BoundedJoinSemilattice`] so you can fold from empty.
 //!
+//! A **meet-semilattice** has the dual `meet` operation (greatest
+//! lower bound). A **lattice** has both join and meet. When both
+//! bottom and top exist, it's a **bounded lattice**.
+//!
 //! ## Features
 //!
 //! This crate has several optional features (all enabled by default):
@@ -49,13 +53,13 @@
 //!
 //! - **`derive`** *(enabled by default)*: Provides derive macros for
 //!   automatic trait implementations:
-//!   - `#[derive(JoinSemilattice)]`: derive join from field-wise
-//!     joins
-//!   - `#[derive(BoundedJoinSemilattice)]`: derive bottom from
-//!     field-wise bottoms
+//!   - `#[derive(JoinSemilattice)]`: derive join from field-wise joins
+//!   - `#[derive(BoundedJoinSemilattice)]`: derive bottom from field-wise bottoms
+//!   - `#[derive(MeetSemilattice)]`: derive meet from field-wise meets
+//!   - `#[derive(BoundedMeetSemilattice)]`: derive top from field-wise tops
 //!
 //! - **`bitflags`** *(enabled by default)*: Adds support for using
-//!   [`BitOr`](join_semilattice::BitOr) with types from the
+//!   [`BitOr`](lattice::BitOr) with types from the
 //!   `bitflags` crate
 //!   - Enables testing and documentation for bitflags integration
 //!
@@ -67,8 +71,8 @@
 //! ## Quick start
 //! ```rust
 //! use std::collections::HashSet;
-//! use postbox::join_semilattice::BoundedJoinSemilattice;
-//! use postbox::join_semilattice::JoinSemilattice;
+//! use postbox::lattice::BoundedJoinSemilattice;
+//! use postbox::lattice::JoinSemilattice;
 //!
 //! // Join = union on sets
 //! let a: HashSet<_> = [1,2].into_iter().collect();
@@ -105,9 +109,9 @@
 // that use `::postbox::...` work both here and in downstream crates.
 extern crate self as postbox;
 
-/// Core algebra: join-semilattice traits and standard lattice
-/// helpers.
-pub mod join_semilattice;
+/// Core algebra: lattice traits (join, meet, bounded variants) and
+/// standard helpers.
+pub mod lattice;
 
 /// CRDTs built on lattice combinators
 pub mod crdt;
@@ -134,5 +138,10 @@ pub mod propagator;
 
 // Re-export the traits (and derive macros when derive feature is enabled)
 // The derive macros come from algebra_core, which re-exports them from algebra-core-derive
-pub use join_semilattice::BoundedJoinSemilattice;
-pub use join_semilattice::JoinSemilattice;
+pub use lattice::BoundedJoinSemilattice;
+pub use lattice::BoundedLattice;
+pub use lattice::BoundedMeetSemilattice;
+pub use lattice::JoinSemilattice;
+pub use lattice::Lattice;
+pub use lattice::MeetSemilattice;
+

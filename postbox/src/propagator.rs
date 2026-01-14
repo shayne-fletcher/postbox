@@ -76,7 +76,7 @@ use algebra_core::{MonoidHom, Semigroup};
 ///
 /// ```rust
 /// use postbox::propagator::CellId;
-/// use postbox::join_semilattice::Max;
+/// use postbox::lattice::Max;
 /// use std::collections::HashSet;
 ///
 /// // Each cell ID carries its type
@@ -122,7 +122,7 @@ impl<S> CellId<S> {
     ///
     /// ```rust
     /// use postbox::propagator::CellId;
-    /// use postbox::join_semilattice::Max;
+    /// use postbox::lattice::Max;
     ///
     /// let id: CellId<Max<i32>> = CellId::new(42);
     /// assert_eq!(id.raw(), 42);
@@ -203,7 +203,7 @@ impl<S: Semigroup> Cell<S> {
     ///
     /// ```rust
     /// use postbox::propagator::Cell;
-    /// use postbox::join_semilattice::Max;
+    /// use postbox::lattice::Max;
     ///
     /// let cell = Cell::new(Max(42));
     /// assert_eq!(cell.value(), &Max(42));
@@ -218,7 +218,7 @@ impl<S: Semigroup> Cell<S> {
     ///
     /// ```rust
     /// use postbox::propagator::Cell;
-    /// use postbox::join_semilattice::Max;
+    /// use postbox::lattice::Max;
     ///
     /// let cell = Cell::new(Max(10));
     /// assert_eq!(cell.value(), &Max(10));
@@ -238,7 +238,7 @@ impl<S: Semigroup> Cell<S> {
     ///
     /// ```rust
     /// use postbox::propagator::Cell;
-    /// use postbox::join_semilattice::Max;
+    /// use postbox::lattice::Max;
     ///
     /// let mut cell = Cell::new(Max(5));
     ///
@@ -284,7 +284,7 @@ impl<S: Semigroup> Cell<S> {
 ///
 /// ```rust
 /// use postbox::propagator::Network;
-/// use postbox::join_semilattice::Max;
+/// use postbox::lattice::Max;
 /// use std::collections::HashSet;
 ///
 /// let mut net = Network::new();
@@ -336,7 +336,7 @@ impl Network {
     ///
     /// ```rust
     /// use postbox::propagator::Network;
-    /// use postbox::join_semilattice::Max;
+    /// use postbox::lattice::Max;
     ///
     /// let mut net = Network::new();
     /// let cell = net.add_cell(Max(42));
@@ -391,7 +391,7 @@ impl Network {
     ///
     /// ```rust
     /// use postbox::propagator::Network;
-    /// use postbox::join_semilattice::Max;
+    /// use postbox::lattice::Max;
     ///
     /// let mut net = Network::new();
     /// let cell = net.add_cell(Max(5));
@@ -444,7 +444,7 @@ impl Default for Network {
 ///
 /// ```rust
 /// use postbox::propagator::{Propagator, Network, CellId};
-/// use postbox::join_semilattice::Max;
+/// use postbox::lattice::Max;
 /// use algebra_core::Semigroup;
 ///
 /// // A propagator that computes max(a, b) → c
@@ -571,7 +571,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::join_semilattice::Max;
+    use crate::lattice::Max;
     use std::collections::HashSet;
 
     #[test]

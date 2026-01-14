@@ -1,43 +1,52 @@
-//! Core **join-semilattice** traits and building blocks.
+//! Core **lattice** traits and building blocks.
 //!
-//! This module re-exports [`JoinSemilattice`] and
-//! [`BoundedJoinSemilattice`] from [`algebra_core`], plus provides a
-//! small toolkit of concrete lattices and combinators that are
-//! convenient for CRDTs and other monotone data structures.
+//! This module re-exports [`JoinSemilattice`], [`BoundedJoinSemilattice`],
+//! [`MeetSemilattice`], [`BoundedMeetSemilattice`], [`Lattice`], and
+//! [`BoundedLattice`] from [`algebra_core`], plus provides a small
+//! toolkit of concrete lattices and combinators that are convenient
+//! for CRDTs and other monotone data structures.
 //!
 //! # Overview
 //!
 //! - [`JoinSemilattice`]: types with an associative, commutative,
-//!   idempotent `join` (∨).
-//! - [`BoundedJoinSemilattice`]: lattices with an explicit bottom
-//!   element (⊥).
+//!   idempotent `join` (∨) — least upper bound.
+//! - [`BoundedJoinSemilattice`]: join-semilattice with bottom (⊥).
+//! - [`MeetSemilattice`]: types with an associative, commutative,
+//!   idempotent `meet` (∧) — greatest lower bound.
+//! - [`BoundedMeetSemilattice`]: meet-semilattice with top (⊤).
+//! - [`Lattice`]: both join and meet operations.
+//! - [`BoundedLattice`]: lattice with both bottom and top.
 //!
 //! # Provided lattices
 //!
-//! - [`crate::join_semilattice::Max`] / [`crate::join_semilattice::Min`]:
+//! - [`crate::lattice::Max`] / [`crate::lattice::Min`]:
 //!   wrapper types where `join` is `max` / `min` on the inner value.
-//! - [`crate::join_semilattice::Any`] / [`crate::join_semilattice::All`]:
+//!   Both implement `BoundedLattice` with dual meet operations.
+//! - [`crate::lattice::Any`] / [`crate::lattice::All`]:
 //!   boolean lattices where `join` is `||` (OR) / `&&` (AND).
-//! - [`crate::join_semilattice::BitOr`] / [`crate::join_semilattice::BitAnd`]:
+//!   Both implement `BoundedLattice`.
+//! - [`crate::lattice::BitOr`] / [`crate::lattice::BitAnd`]:
 //!   bitwise lattices for bitflags and integer masks (OR / AND).
+//!   Both implement `BoundedLattice`.
 //! - [`std::collections::HashSet`], [`std::collections::BTreeSet`]:
-//!   sets with `join = union` and bottom = empty set.
-//! - [`crate::join_semilattice::LatticeMap`]:
+//!   sets with `join = union`, `meet = intersection`, bottom = empty set.
+//!   Implement `Lattice` (no top for arbitrary T).
+//! - [`crate::lattice::LatticeMap`]:
 //!   pointwise map lattice over `HashMap<K, V>` where `V` is a
 //!   lattice; `join` unions keys and joins overlapping values.
 //! - Tuples up to arity 4:
-//!   product lattices with componentwise `join` and bottom.
+//!   product lattices with componentwise operations.
 //! - [`Option`]:
 //!   lifted lattice with `None` as bottom and `Some(a) ⊔ Some(b)`
 //!   delegating to `L`.
-//! - [`crate::join_semilattice::JoinOf`] / [`crate::join_semilattice::NonEmptyJoinOf`]:
+//! - [`crate::lattice::JoinOf`] / [`crate::lattice::NonEmptyJoinOf`]:
 //!   helpers for collecting iterators of lattice values by joining
 //!   them (treating empty as ⊥ or returning `None`).
 //!
 //! # Example
 //!
 //! ```rust
-//! use postbox::join_semilattice::{JoinSemilattice, Max};
+//! use postbox::lattice::{JoinSemilattice, Max};
 //!
 //! let x: Max<_> = 1.into();
 //! let y: Max<_> = 3.into();
@@ -52,7 +61,10 @@
 //! as lattices with well-defined, convergent merge operations.
 
 // Re-export traits from algebra-core
-pub use algebra_core::{BoundedJoinSemilattice, JoinSemilattice};
+pub use algebra_core::{
+    BoundedJoinSemilattice, BoundedLattice, BoundedMeetSemilattice, JoinSemilattice, Lattice,
+    MeetSemilattice,
+};
 
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -123,6 +135,22 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Ma
 
 impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::CommutativeMonoid for Max<T> {}
 
+impl<T: Ord + Clone> MeetSemilattice for Max<T> {
+    fn meet(&self, other: &Self) -> Self {
+        if self.0 <= other.0 {
+            self.clone()
+        } else {
+            other.clone()
+        }
+    }
+}
+
+impl<T: Ord + Clone + Default + num_traits::Bounded> BoundedMeetSemilattice for Max<T> {
+    fn top() -> Self {
+        Max(num_traits::Bounded::max_value())
+    }
+}
+
 // join = min
 
 /// Newtype wrapper turning an `Ord` type into a **min-semilattice**.
@@ -187,6 +215,24 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Mi
 
 impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::CommutativeMonoid for Min<T> {}
 
+impl<T: Ord + Clone> MeetSemilattice for Min<T> {
+    fn meet(&self, other: &Self) -> Self {
+        // In the dual order (where min is join), meet is max
+        if self.0 >= other.0 {
+            self.clone()
+        } else {
+            other.clone()
+        }
+    }
+}
+
+impl<T: Ord + Clone + Default + num_traits::Bounded> BoundedMeetSemilattice for Min<T> {
+    fn top() -> Self {
+        // In the dual order, top is the minimum value
+        Min(num_traits::Bounded::min_value())
+    }
+}
+
 // join = OR (disjunction)
 
 /// Newtype wrapper for `bool` where `join` is logical OR (disjunction).
@@ -203,7 +249,7 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::CommutativeMo
 /// # Example
 ///
 /// ```rust
-/// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, Any};
+/// use postbox::lattice::{JoinSemilattice, BoundedJoinSemilattice, Any};
 ///
 /// let x: Any = false.into();
 /// let y: Any = true.into();
@@ -258,6 +304,18 @@ impl algebra_core::Monoid for Any {
 
 impl algebra_core::CommutativeMonoid for Any {}
 
+impl MeetSemilattice for Any {
+    fn meet(&self, other: &Self) -> Self {
+        Any(self.0 && other.0)
+    }
+}
+
+impl BoundedMeetSemilattice for Any {
+    fn top() -> Self {
+        Any(true)
+    }
+}
+
 // join = AND (conjunction, dual order)
 
 /// Newtype wrapper for `bool` where `join` is logical AND (conjunction).
@@ -278,7 +336,7 @@ impl algebra_core::CommutativeMonoid for Any {}
 /// # Example
 ///
 /// ```rust
-/// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, All};
+/// use postbox::lattice::{JoinSemilattice, BoundedJoinSemilattice, All};
 ///
 /// let x: All = true.into();
 /// let y: All = false.into();
@@ -333,6 +391,20 @@ impl algebra_core::Monoid for All {
 
 impl algebra_core::CommutativeMonoid for All {}
 
+impl MeetSemilattice for All {
+    fn meet(&self, other: &Self) -> Self {
+        // In the dual order (where AND is join), meet is OR
+        All(self.0 || other.0)
+    }
+}
+
+impl BoundedMeetSemilattice for All {
+    fn top() -> Self {
+        // In the dual order, top is false
+        All(false)
+    }
+}
+
 // join = bitwise OR
 
 /// Lattice wrapper for bitflags and integers with join = bitwise OR.
@@ -358,7 +430,7 @@ impl algebra_core::CommutativeMonoid for All {}
 /// ## With integers
 ///
 /// ```rust
-/// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, BitOr};
+/// use postbox::lattice::{JoinSemilattice, BoundedJoinSemilattice, BitOr};
 ///
 /// let x = BitOr(0b0011u8);
 /// let y = BitOr(0b0101u8);
@@ -371,7 +443,7 @@ impl algebra_core::CommutativeMonoid for All {}
 /// ```rust
 /// # #[cfg(feature = "bitflags")] {
 /// use bitflags::bitflags;
-/// use postbox::join_semilattice::{JoinSemilattice, BitOr};
+/// use postbox::lattice::{JoinSemilattice, BitOr};
 ///
 /// bitflags! {
 ///     #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -460,6 +532,25 @@ impl<T> algebra_core::CommutativeMonoid for BitOr<T> where
 {
 }
 
+impl<T> MeetSemilattice for BitOr<T>
+where
+    T: Copy + std::ops::BitAnd<Output = T>,
+{
+    fn meet(&self, other: &Self) -> Self {
+        BitOr(self.0 & other.0)
+    }
+}
+
+impl<T> BoundedMeetSemilattice for BitOr<T>
+where
+    T: Copy + std::ops::BitAnd<Output = T> + num_traits::Bounded,
+{
+    fn top() -> Self {
+        // Top for BitOr is all bits set (max value)
+        BitOr(num_traits::Bounded::max_value())
+    }
+}
+
 // join = bitwise AND
 
 /// Lattice wrapper for bitflags and integers with join = bitwise AND.
@@ -485,7 +576,7 @@ impl<T> algebra_core::CommutativeMonoid for BitOr<T> where
 /// ## With integers
 ///
 /// ```rust
-/// use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice, BitAnd};
+/// use postbox::lattice::{JoinSemilattice, BoundedJoinSemilattice, BitAnd};
 ///
 /// let x = BitAnd(0b1111u8);
 /// let y = BitAnd(0b1010u8);
@@ -498,7 +589,7 @@ impl<T> algebra_core::CommutativeMonoid for BitOr<T> where
 /// ```rust
 /// # #[cfg(feature = "bitflags")] {
 /// use bitflags::bitflags;
-/// use postbox::join_semilattice::{JoinSemilattice, BitAnd};
+/// use postbox::lattice::{JoinSemilattice, BitAnd};
 ///
 /// bitflags! {
 ///     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -591,6 +682,26 @@ where
 impl<T> algebra_core::CommutativeMonoid for BitAnd<T> where
     T: Copy + std::ops::BitAnd<Output = T> + num_traits::Bounded
 {
+}
+
+impl<T> MeetSemilattice for BitAnd<T>
+where
+    T: Copy + std::ops::BitOr<Output = T>,
+{
+    fn meet(&self, other: &Self) -> Self {
+        // In the dual order (where AND is join), meet is OR
+        BitAnd(self.0 | other.0)
+    }
+}
+
+impl<T> BoundedMeetSemilattice for BitAnd<T>
+where
+    T: Copy + std::ops::BitOr<Output = T> + Default,
+{
+    fn top() -> Self {
+        // In the dual order, top is zero (default)
+        BitAnd(T::default())
+    }
 }
 
 /// Pointwise map lattice over `HashMap`.
@@ -704,7 +815,7 @@ where
 /// references `&L`, allowing you to write:
 ///
 /// ```
-/// use postbox::join_semilattice::{JoinOf, JoinSemilattice};
+/// use postbox::lattice::{JoinOf, JoinSemilattice};
 /// use std::collections::HashSet;
 ///
 /// let a: HashSet<_> = [1, 2].into_iter().collect();
@@ -781,7 +892,7 @@ where
 /// when given an empty iterator:
 ///
 /// ```
-/// use postbox::join_semilattice::{NonEmptyJoinOf, JoinSemilattice};
+/// use postbox::lattice::{NonEmptyJoinOf, JoinSemilattice};
 /// use std::collections::HashSet;
 ///
 /// let a: HashSet<_> = [1, 2].into_iter().collect();
@@ -1477,5 +1588,149 @@ mod tests {
         // Commutativity
         assert_eq!(x.combine(&y), y.combine(&x));
         assert_eq!(use_commutative_monoid(&x, &y), Max(5));
+    }
+
+    // ============================================================
+    // MeetSemilattice tests
+    // ============================================================
+
+    #[test]
+    fn max_meet_is_min() {
+        let a = Max(5);
+        let b = Max(10);
+        assert_eq!(a.meet(&b), Max(5));
+        assert_eq!(b.meet(&a), Max(5));
+    }
+
+    #[test]
+    fn max_top_is_max_value() {
+        assert_eq!(Max::<i32>::top(), Max(i32::MAX));
+        assert_eq!(Max::<u32>::top(), Max(u32::MAX));
+    }
+
+    #[test]
+    fn max_is_bounded_lattice() {
+        // join = max, meet = min
+        let a = Max(5i32);
+        let b = Max(10i32);
+        assert_eq!(a.join(&b), Max(10));
+        assert_eq!(a.meet(&b), Max(5));
+        assert_eq!(Max::<i32>::bottom(), Max(i32::MIN));
+        assert_eq!(Max::<i32>::top(), Max(i32::MAX));
+    }
+
+    #[test]
+    fn min_meet_is_max() {
+        // In Min's dual order, meet = max
+        let a = Min(5);
+        let b = Min(10);
+        assert_eq!(a.meet(&b), Min(10));
+        assert_eq!(b.meet(&a), Min(10));
+    }
+
+    #[test]
+    fn min_top_is_min_value() {
+        // In Min's dual order, top is the minimum value
+        assert_eq!(Min::<i32>::top(), Min(i32::MIN));
+        assert_eq!(Min::<u32>::top(), Min(u32::MIN));
+    }
+
+    #[test]
+    fn any_meet_is_and() {
+        // meet = AND
+        assert_eq!(Any(false).meet(&Any(false)), Any(false));
+        assert_eq!(Any(false).meet(&Any(true)), Any(false));
+        assert_eq!(Any(true).meet(&Any(false)), Any(false));
+        assert_eq!(Any(true).meet(&Any(true)), Any(true));
+    }
+
+    #[test]
+    fn any_top_is_true() {
+        assert_eq!(Any::top(), Any(true));
+    }
+
+    #[test]
+    fn any_is_bounded_lattice() {
+        // join = OR, meet = AND
+        assert_eq!(Any(false).join(&Any(true)), Any(true));
+        assert_eq!(Any(false).meet(&Any(true)), Any(false));
+        assert_eq!(Any::bottom(), Any(false));
+        assert_eq!(Any::top(), Any(true));
+    }
+
+    #[test]
+    fn all_meet_is_or() {
+        // In All's dual order, meet = OR
+        assert_eq!(All(false).meet(&All(false)), All(false));
+        assert_eq!(All(false).meet(&All(true)), All(true));
+        assert_eq!(All(true).meet(&All(false)), All(true));
+        assert_eq!(All(true).meet(&All(true)), All(true));
+    }
+
+    #[test]
+    fn all_top_is_false() {
+        // In All's dual order, top is false
+        assert_eq!(All::top(), All(false));
+    }
+
+    #[test]
+    fn bitor_meet_is_bitwise_and() {
+        let x = BitOr(0b1111u8);
+        let y = BitOr(0b1010u8);
+        assert_eq!(x.meet(&y), BitOr(0b1010u8));
+    }
+
+    #[test]
+    fn bitor_top_is_all_bits_set() {
+        assert_eq!(BitOr::<u8>::top(), BitOr(0xFF));
+        assert_eq!(BitOr::<u16>::top(), BitOr(0xFFFF));
+    }
+
+    #[test]
+    fn bitor_is_bounded_lattice() {
+        // join = OR, meet = AND
+        let x = BitOr(0b0011u8);
+        let y = BitOr(0b0101u8);
+        assert_eq!(x.join(&y), BitOr(0b0111u8));
+        assert_eq!(x.meet(&y), BitOr(0b0001u8));
+        assert_eq!(BitOr::<u8>::bottom(), BitOr(0));
+        assert_eq!(BitOr::<u8>::top(), BitOr(0xFF));
+    }
+
+    #[test]
+    fn bitand_meet_is_bitwise_or() {
+        // In BitAnd's dual order, meet = OR
+        let x = BitAnd(0b0011u8);
+        let y = BitAnd(0b0101u8);
+        assert_eq!(x.meet(&y), BitAnd(0b0111u8));
+    }
+
+    #[test]
+    fn bitand_top_is_zero() {
+        // In BitAnd's dual order, top is zero
+        assert_eq!(BitAnd::<u8>::top(), BitAnd(0));
+        assert_eq!(BitAnd::<u16>::top(), BitAnd(0));
+    }
+
+    #[test]
+    fn absorption_laws_max() {
+        // a ∨ (a ∧ b) = a
+        // a ∧ (a ∨ b) = a
+        let a = Max(5i32);
+        let b = Max(10i32);
+        assert_eq!(a.join(&a.meet(&b)), a);
+        assert_eq!(a.meet(&a.join(&b)), a);
+    }
+
+    #[test]
+    fn absorption_laws_any() {
+        for a_val in [false, true] {
+            for b_val in [false, true] {
+                let a = Any(a_val);
+                let b = Any(b_val);
+                assert_eq!(a.join(&a.meet(&b)), a);
+                assert_eq!(a.meet(&a.join(&b)), a);
+            }
+        }
     }
 }

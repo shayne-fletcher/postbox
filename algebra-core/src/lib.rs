@@ -13,8 +13,12 @@
 //! - [`AbelianGroup`]: commutative group
 //! - [`SemigroupHom`]: structure-preserving map between semigroups
 //! - [`MonoidHom`]: structure-preserving map between monoids
-//! - [`JoinSemilattice`]: associative, commutative, idempotent operation
+//! - [`JoinSemilattice`]: associative, commutative, idempotent operation (least upper bound)
 //! - [`BoundedJoinSemilattice`]: join-semilattice with bottom element
+//! - [`MeetSemilattice`]: associative, commutative, idempotent operation (greatest lower bound)
+//! - [`BoundedMeetSemilattice`]: meet-semilattice with top element
+//! - [`Lattice`]: both join and meet operations
+//! - [`BoundedLattice`]: lattice with both bottom and top elements
 //!
 //! ## Quick start
 //!
@@ -33,12 +37,21 @@
 //!
 //! This crate provides implementations for common standard library types:
 //!
-//! ### Sets (union as join/combine)
+//! ### Sets (union as join, intersection as meet)
 //!
 //! - **[`HashSet<T>`](std::collections::HashSet)**: `JoinSemilattice`,
-//!   `BoundedJoinSemilattice`, `Semigroup`, `Monoid`, `CommutativeMonoid`
+//!   `BoundedJoinSemilattice`, `MeetSemilattice`, `Lattice`,
+//!   `Semigroup`, `Monoid`, `CommutativeMonoid`
+//!   - join = union, meet = intersection, bottom = ∅ (no top for arbitrary T)
 //! - **[`BTreeSet<T>`](std::collections::BTreeSet)**: `JoinSemilattice`,
-//!   `BoundedJoinSemilattice`, `Semigroup`, `Monoid`, `CommutativeMonoid`
+//!   `BoundedJoinSemilattice`, `MeetSemilattice`, `Lattice`,
+//!   `Semigroup`, `Monoid`, `CommutativeMonoid`
+//!
+//! ### Booleans (OR/AND lattice)
+//!
+//! - **[`bool`]**: `JoinSemilattice`, `BoundedJoinSemilattice`,
+//!   `MeetSemilattice`, `BoundedMeetSemilattice`, `BoundedLattice`
+//!   - join = OR, meet = AND, bottom = false, top = true
 //!
 //! ### Strings (concatenation)
 //!
@@ -51,7 +64,13 @@
 //! - **[`Option<M>`](Option)** (where `M: CommutativeMonoid + Clone`): `CommutativeMonoid`
 //! - **[`Option<L>`](Option)** (where `L: JoinSemilattice + Clone`):
 //!   `JoinSemilattice`, `BoundedJoinSemilattice`
-//!   - `None` is bottom/empty, `Some(a) ⊔ Some(b) = Some(a ⊔ b)`
+//!   - `None` is bottom, `Some(a) ⊔ Some(b) = Some(a ⊔ b)`
+//! - **[`Option<L>`](Option)** (where `L: MeetSemilattice + Clone`):
+//!   `MeetSemilattice`
+//!   - `None ⊓ x = None` (bottom ⊓ anything = bottom)
+//! - **[`Option<L>`](Option)** (where `L: BoundedMeetSemilattice + Clone`):
+//!   `BoundedMeetSemilattice`
+//!   - top = `Some(L::top())`
 //!
 //! ### Tuples (product algebras)
 //!
@@ -59,6 +78,7 @@
 //! - **`(A,)`, `(A, B)`, `(A, B, C)`, `(A, B, C, D)`**:
 //!   - `Semigroup`, `Monoid`, `CommutativeMonoid` (componentwise)
 //!   - `JoinSemilattice`, `BoundedJoinSemilattice` (componentwise)
+//!   - `MeetSemilattice`, `BoundedMeetSemilattice` (componentwise)
 //!
 //! All tuple implementations require component types to implement the
 //! corresponding trait, and operations are applied componentwise.
@@ -498,6 +518,149 @@ pub trait BoundedJoinSemilattice: JoinSemilattice {
     }
 }
 
+/// A **meet-semilattice**: a type with an associative, commutative,
+/// idempotent binary operation that computes greatest lower bounds.
+///
+/// Laws (not enforced by type system):
+///
+/// - **Associative**: `a.meet(b).meet(c) == a.meet(b.meet(c))`
+/// - **Commutative**: `a.meet(b) == b.meet(a)`
+/// - **Idempotent**: `a.meet(a) == a`
+///
+/// The `meet` operation computes the greatest lower bound (infimum) in the
+/// induced partial order: `x ≤ y` iff `x.meet(y) == x`.
+///
+/// # Example
+///
+/// ```rust
+/// use algebra_core::MeetSemilattice;
+/// use std::collections::HashSet;
+///
+/// let a: HashSet<_> = [1, 2, 3].into_iter().collect();
+/// let b: HashSet<_> = [2, 3, 4].into_iter().collect();
+///
+/// // meet = intersection
+/// let c = a.meet(&b);
+/// assert_eq!(c, [2, 3].into_iter().collect());
+///
+/// // Idempotent
+/// assert_eq!(a.meet(&a), a);
+/// ```
+pub trait MeetSemilattice: Sized {
+    /// The meet (greatest lower bound).
+    fn meet(&self, other: &Self) -> Self;
+
+    /// In-place variant.
+    fn meet_assign(&mut self, other: &Self) {
+        *self = self.meet(other);
+    }
+
+    /// Derived partial order: x ≤ y iff x ∧ y = x.
+    fn leq_meet(&self, other: &Self) -> bool
+    where
+        Self: PartialEq,
+    {
+        self.meet(other) == *self
+    }
+
+    /// Meet a finite iterator of values. Returns `None` for empty iterators.
+    fn meet_all<I>(it: I) -> Option<Self>
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        it.into_iter().reduce(|acc, x| acc.meet(&x))
+    }
+}
+
+/// A **bounded meet-semilattice**: a meet-semilattice with a top element.
+///
+/// Laws (not enforced by type system):
+///
+/// - **Associative**: `a.meet(b).meet(c) == a.meet(b.meet(c))`
+/// - **Commutative**: `a.meet(b) == b.meet(a)`
+/// - **Idempotent**: `a.meet(a) == a`
+/// - **Identity**: `top().meet(a) == a == a.meet(top())`
+///
+/// The top element (⊤) is the greatest element in the partial order.
+///
+/// # Example
+///
+/// ```rust
+/// use algebra_core::{BoundedMeetSemilattice, MeetSemilattice};
+///
+/// // For bool: top = true, meet = AND
+/// let a = true;
+/// let top = bool::top();
+/// assert_eq!(top, true);
+/// assert_eq!(top.meet(&a), a);
+/// assert_eq!(a.meet(&top), a);
+/// ```
+pub trait BoundedMeetSemilattice: MeetSemilattice {
+    /// The top element of the lattice (⊤).
+    ///
+    /// This is the greatest element w.r.t. the induced partial order:
+    /// for all `x`, `top().meet(x) == x`.
+    fn top() -> Self;
+
+    /// Meet a finite iterator of values, starting from ⊤.
+    ///
+    /// Never returns `None`: an empty iterator produces `top()`.
+    fn meet_all_from_top<I>(it: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        it.into_iter().fold(Self::top(), |acc, x| acc.meet(&x))
+    }
+}
+
+/// A **lattice**: a type with both join (least upper bound) and meet
+/// (greatest lower bound) operations.
+///
+/// Laws (not enforced by type system):
+///
+/// - All join-semilattice laws for `join`
+/// - All meet-semilattice laws for `meet`
+/// - **Absorption**: `a.join(a.meet(b)) == a` and `a.meet(a.join(b)) == a`
+///
+/// # Example
+///
+/// ```rust
+/// use algebra_core::{JoinSemilattice, MeetSemilattice, Lattice};
+/// use std::collections::HashSet;
+///
+/// let a: HashSet<_> = [1, 2].into_iter().collect();
+/// let b: HashSet<_> = [2, 3].into_iter().collect();
+///
+/// // join = union, meet = intersection
+/// assert_eq!(a.join(&b), [1, 2, 3].into_iter().collect());
+/// assert_eq!(a.meet(&b), [2].into_iter().collect());
+/// ```
+pub trait Lattice: JoinSemilattice + MeetSemilattice {}
+
+impl<T: JoinSemilattice + MeetSemilattice> Lattice for T {}
+
+/// A **bounded lattice**: a lattice with both bottom and top elements.
+///
+/// Laws (not enforced by type system):
+///
+/// - All bounded join-semilattice laws
+/// - All bounded meet-semilattice laws
+/// - **Absorption**: `a.join(a.meet(b)) == a` and `a.meet(a.join(b)) == a`
+/// - **Complement bounds**: `bottom().meet(a) == bottom()` and `top().join(a) == top()`
+///
+/// # Example
+///
+/// ```rust
+/// use algebra_core::{BoundedJoinSemilattice, BoundedMeetSemilattice, BoundedLattice};
+///
+/// // bool is a bounded lattice
+/// assert_eq!(bool::bottom(), false);
+/// assert_eq!(bool::top(), true);
+/// ```
+pub trait BoundedLattice: BoundedJoinSemilattice + BoundedMeetSemilattice {}
+
+impl<T: BoundedJoinSemilattice + BoundedMeetSemilattice> BoundedLattice for T {}
+
 // Implementations for standard library types
 
 use std::collections::{BTreeSet, HashSet};
@@ -531,6 +694,15 @@ impl<T: Eq + Hash + Clone> Monoid for HashSet<T> {
 
 impl<T: Eq + Hash + Clone> CommutativeMonoid for HashSet<T> {}
 
+impl<T: Eq + Hash + Clone> MeetSemilattice for HashSet<T> {
+    fn meet(&self, other: &Self) -> Self {
+        self.intersection(other).cloned().collect()
+    }
+}
+
+// Note: HashSet does NOT implement BoundedMeetSemilattice because
+// the universal set (top) cannot be represented for arbitrary T.
+
 // BTreeSet: join = union
 
 impl<T: Ord + Clone> JoinSemilattice for BTreeSet<T> {
@@ -558,6 +730,41 @@ impl<T: Ord + Clone> Monoid for BTreeSet<T> {
 }
 
 impl<T: Ord + Clone> CommutativeMonoid for BTreeSet<T> {}
+
+impl<T: Ord + Clone> MeetSemilattice for BTreeSet<T> {
+    fn meet(&self, other: &Self) -> Self {
+        self.intersection(other).cloned().collect()
+    }
+}
+
+// Note: BTreeSet does NOT implement BoundedMeetSemilattice because
+// the universal set (top) cannot be represented for arbitrary T.
+
+// bool: join = OR, meet = AND
+
+impl JoinSemilattice for bool {
+    fn join(&self, other: &Self) -> Self {
+        *self || *other
+    }
+}
+
+impl BoundedJoinSemilattice for bool {
+    fn bottom() -> Self {
+        false
+    }
+}
+
+impl MeetSemilattice for bool {
+    fn meet(&self, other: &Self) -> Self {
+        *self && *other
+    }
+}
+
+impl BoundedMeetSemilattice for bool {
+    fn top() -> Self {
+        true
+    }
+}
 
 // String: combine = concatenation
 
@@ -707,6 +914,22 @@ impl<M: Monoid + Clone> Monoid for Option<M> {
 
 impl<M: CommutativeMonoid + Clone> CommutativeMonoid for Option<M> {}
 
+impl<L: MeetSemilattice + Clone> MeetSemilattice for Option<L> {
+    fn meet(&self, other: &Self) -> Self {
+        match (self, other) {
+            (Some(a), Some(b)) => Some(a.meet(b)),
+            // None is bottom, and bottom ⊓ x = bottom
+            _ => None,
+        }
+    }
+}
+
+impl<L: BoundedMeetSemilattice + Clone> BoundedMeetSemilattice for Option<L> {
+    fn top() -> Self {
+        Some(L::top())
+    }
+}
+
 // Unit type
 
 impl JoinSemilattice for () {
@@ -733,6 +956,14 @@ impl Group for () {
 
 impl AbelianGroup for () {}
 
+impl MeetSemilattice for () {
+    fn meet(&self, _other: &Self) -> Self {}
+}
+
+impl BoundedMeetSemilattice for () {
+    fn top() -> Self {}
+}
+
 // Tuples: product lattices
 
 macro_rules! impl_product_lattice {
@@ -755,6 +986,28 @@ macro_rules! impl_product_lattice {
             fn bottom() -> Self {
                 (
                     $( $T::bottom(), )+
+                )
+            }
+        }
+
+        impl<$( $T ),+> MeetSemilattice for ( $( $T, )+ )
+        where
+            $( $T: MeetSemilattice ),+
+        {
+            fn meet(&self, other: &Self) -> Self {
+                (
+                    $( self.$idx.meet(&other.$idx), )+
+                )
+            }
+        }
+
+        impl<$( $T ),+> BoundedMeetSemilattice for ( $( $T, )+ )
+        where
+            $( $T: BoundedMeetSemilattice ),+
+        {
+            fn top() -> Self {
+                (
+                    $( $T::top(), )+
                 )
             }
         }
@@ -808,8 +1061,8 @@ impl_product_monoid!(A:0, B:1, C:2, D:3);
 // Re-export derive macros when derive feature is enabled
 #[cfg(feature = "derive")]
 pub use algebra_core_derive::{
-    AbelianGroup, BoundedJoinSemilattice, CommutativeMonoid, Group, JoinSemilattice, Monoid,
-    Semigroup,
+    AbelianGroup, BoundedJoinSemilattice, BoundedMeetSemilattice, CommutativeMonoid, Group,
+    JoinSemilattice, MeetSemilattice, Monoid, Semigroup,
 };
 
 #[cfg(test)]
@@ -1044,6 +1297,93 @@ mod tests {
     fn product_wrapper_monoid_empty_is_one() {
         use crate::Product;
         assert_eq!(Product::<i32>::empty(), Product(1));
+    }
+
+    // ============================================================
+    // MeetSemilattice tests
+    // ============================================================
+
+    #[test]
+    fn hashset_meet_is_intersection() {
+        use std::collections::HashSet;
+        let a: HashSet<_> = [1, 2, 3].into_iter().collect();
+        let b: HashSet<_> = [2, 3, 4].into_iter().collect();
+        assert_eq!(a.meet(&b), [2, 3].into_iter().collect());
+    }
+
+    #[test]
+    fn hashset_meet_is_commutative() {
+        use std::collections::HashSet;
+        let a: HashSet<_> = [1, 2].into_iter().collect();
+        let b: HashSet<_> = [2, 3].into_iter().collect();
+        assert_eq!(a.meet(&b), b.meet(&a));
+    }
+
+    #[test]
+    fn hashset_is_lattice() {
+        use std::collections::HashSet;
+        let a: HashSet<_> = [1, 2].into_iter().collect();
+        let b: HashSet<_> = [2, 3].into_iter().collect();
+        // join = union, meet = intersection
+        assert_eq!(a.join(&b), [1, 2, 3].into_iter().collect());
+        assert_eq!(a.meet(&b), [2].into_iter().collect());
+    }
+
+    #[test]
+    fn bool_is_bounded_lattice() {
+        // join = OR, meet = AND
+        assert_eq!(true.join(&false), true);
+        assert_eq!(true.meet(&false), false);
+        assert_eq!(bool::bottom(), false);
+        assert_eq!(bool::top(), true);
+    }
+
+    #[test]
+    fn bool_absorption_laws() {
+        // a ∨ (a ∧ b) = a
+        // a ∧ (a ∨ b) = a
+        for a in [true, false] {
+            for b in [true, false] {
+                assert_eq!(a.join(&a.meet(&b)), a);
+                assert_eq!(a.meet(&a.join(&b)), a);
+            }
+        }
+    }
+
+    #[test]
+    fn option_meet_with_none_is_none() {
+        use std::collections::HashSet;
+        let a: Option<HashSet<_>> = Some([1, 2].into_iter().collect());
+        let b: Option<HashSet<i32>> = None;
+        // None is bottom, and bottom ∧ x = bottom
+        assert_eq!(a.meet(&b), None);
+        assert_eq!(b.meet(&a), None);
+    }
+
+    #[test]
+    fn option_meet_with_some_meets_inner() {
+        use std::collections::HashSet;
+        let a: Option<HashSet<_>> = Some([1, 2, 3].into_iter().collect());
+        let b: Option<HashSet<_>> = Some([2, 3, 4].into_iter().collect());
+        let expected: Option<HashSet<_>> = Some([2, 3].into_iter().collect());
+        assert_eq!(a.meet(&b), expected);
+    }
+
+    #[test]
+    fn option_top_is_some_top() {
+        assert_eq!(Option::<bool>::top(), Some(true));
+    }
+
+    #[test]
+    fn tuple_meet_is_componentwise() {
+        let a = (true, false);
+        let b = (false, true);
+        assert_eq!(a.meet(&b), (false, false));
+    }
+
+    #[test]
+    fn tuple_top_is_componentwise() {
+        assert_eq!(<(bool, bool)>::top(), (true, true));
     }
 
     // Tests for derive macros on tuple structs

@@ -19,7 +19,7 @@
 //! `derive` feature is enabled:
 //!
 //! ```ignore
-//! use postbox::join_semilattice::{JoinSemilattice, BoundedJoinSemilattice};
+//! use postbox::lattice::{JoinSemilattice, BoundedJoinSemilattice};
 //! use postbox::{JoinSemilatticeDerive, BoundedJoinSemilatticeDerive};
 //!
 //! #[derive(JoinSemilatticeDerive, BoundedJoinSemilatticeDerive)]
@@ -97,14 +97,14 @@ pub fn derive_join_semilattice(input: TokenStream) -> TokenStream {
     let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     // Clone generics and extend the where clause with:
-    //   <field-ty> : ::postbox::join_semilattice::JoinSemilattice
+    //   <field-ty> : ::postbox::lattice::JoinSemilattice
     let mut generics = input.generics.clone();
     {
         let where_clause = generics.make_where_clause();
         for ty in &field_types {
             where_clause
                 .predicates
-                .push(parse_quote!(#ty: ::postbox::join_semilattice::JoinSemilattice));
+                .push(parse_quote!(#ty: ::postbox::lattice::JoinSemilattice));
         }
     }
 
@@ -112,12 +112,12 @@ pub fn derive_join_semilattice(input: TokenStream) -> TokenStream {
 
     // Implement join as fieldwise join.
     let expanded = quote! {
-        impl #impl_generics ::postbox::join_semilattice::JoinSemilattice for #name #ty_generics
+        impl #impl_generics ::postbox::lattice::JoinSemilattice for #name #ty_generics
         #where_clause
         {
             fn join(&self, other: &Self) -> Self {
                 #name {
-                    #( #field_idents: ::postbox::join_semilattice::JoinSemilattice::join(&self.#field_idents, &other.#field_idents), )*
+                    #( #field_idents: ::postbox::lattice::JoinSemilattice::join(&self.#field_idents, &other.#field_idents), )*
                 }
             }
         }
@@ -152,14 +152,14 @@ pub fn derive_bounded_join_semilattice(input: TokenStream) -> TokenStream {
     let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
 
     // Clone generics and extend the where clause with:
-    //   <field-ty> : ::postbox::join_semilattice::BoundedJoinSemilattice
+    //   <field-ty> : ::postbox::lattice::BoundedJoinSemilattice
     let mut generics = input.generics.clone();
     {
         let where_clause = generics.make_where_clause();
         for ty in &field_types {
             where_clause
                 .predicates
-                .push(parse_quote!(#ty: ::postbox::join_semilattice::BoundedJoinSemilattice));
+                .push(parse_quote!(#ty: ::postbox::lattice::BoundedJoinSemilattice));
         }
     }
 
@@ -167,12 +167,12 @@ pub fn derive_bounded_join_semilattice(input: TokenStream) -> TokenStream {
 
     // Implement bottom as struct-of-bottoms.
     let expanded = quote! {
-        impl #impl_generics ::postbox::join_semilattice::BoundedJoinSemilattice for #name #ty_generics
+        impl #impl_generics ::postbox::lattice::BoundedJoinSemilattice for #name #ty_generics
         #where_clause
         {
             fn bottom() -> Self {
                 #name {
-                    #( #field_idents: ::postbox::join_semilattice::BoundedJoinSemilattice::bottom(), )*
+                    #( #field_idents: ::postbox::lattice::BoundedJoinSemilattice::bottom(), )*
                 }
             }
         }

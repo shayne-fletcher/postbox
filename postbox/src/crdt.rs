@@ -2,7 +2,7 @@
 //!
 //! This module provides a small collection of classic convergent
 //! replicated data types implemented in terms of [`JoinSemilattice`]
-//! / [`BoundedJoinSemilattice`] from [`crate::join_semilattice`]. All
+//! / [`BoundedJoinSemilattice`] from [`crate::lattice`]. All
 //! of these are *state-based* CRDTs: replicas exchange full lattice
 //! states and merge them with `join`, guaranteeing convergence under
 //! arbitrary message reordering and duplication.
@@ -46,8 +46,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use crate::join_semilattice::BoundedJoinSemilattice;
-use crate::join_semilattice::JoinSemilattice;
+use crate::lattice::BoundedJoinSemilattice;
+use crate::lattice::JoinSemilattice;
 
 /// Internal lattice state of a grow-only counter.
 ///

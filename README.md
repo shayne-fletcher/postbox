@@ -38,6 +38,7 @@ The `postbox` crate has several optional features *(all enabled by default)*:
 
 - **`derive`** *(default)*: Provides derive macros for automatic trait implementations
   - `#[derive(JoinSemilattice)]`, `#[derive(BoundedJoinSemilattice)]`
+  - `#[derive(MeetSemilattice)]`, `#[derive(BoundedMeetSemilattice)]`
   - Also supports: `Semigroup`, `Monoid`, `CommutativeMonoid`, `Group`, `AbelianGroup`
   - Works for both named structs and tuple structs
 
@@ -62,7 +63,9 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 ### Core traits (from `algebra-core`):
 - `Semigroup`, `Monoid`, `CommutativeMonoid`: basic algebraic structures
 - `Group`, `AbelianGroup`: invertible algebraic structures
-- `JoinSemilattice`, `BoundedJoinSemilattice`: lattice traits
+- `JoinSemilattice`, `BoundedJoinSemilattice`: join-semilattice traits (least upper bound)
+- `MeetSemilattice`, `BoundedMeetSemilattice`: meet-semilattice traits (greatest lower bound)
+- `Lattice`, `BoundedLattice`: combined join + meet
 - `SemigroupHom`, `MonoidHom`: structure-preserving transformations between algebraic types
 - `Sum<T>`, `Product<T>`: numeric wrappers for addition and multiplication monoids
 
@@ -111,8 +114,8 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 
 ```rust
 use std::collections::HashSet;
-use postbox::join_semilattice::BoundedJoinSemilattice;
-use postbox::join_semilattice::JoinSemilattice;
+use postbox::lattice::BoundedJoinSemilattice;
+use postbox::lattice::JoinSemilattice;
 
 let a: HashSet<_> = [1, 2].into_iter().collect();
 let b: HashSet<_> = [2, 3].into_iter().collect();
@@ -126,7 +129,7 @@ Enable the `derive` feature to automatically implement algebraic traits for your
 
 ```rust
 use std::collections::HashSet;
-use postbox::join_semilattice::Max;
+use postbox::lattice::Max;
 use postbox::{JoinSemilattice, BoundedJoinSemilattice};
 
 #[derive(Debug, Clone, PartialEq, Eq, JoinSemilattice, BoundedJoinSemilattice)]
@@ -136,7 +139,7 @@ struct Foo {
 }
 ```
 
-The derive macros work for both named structs and tuple structs, and support all algebraic traits: `Semigroup`, `Monoid`, `CommutativeMonoid`, `Group`, `AbelianGroup`, `JoinSemilattice`, and `BoundedJoinSemilattice`.
+The derive macros work for both named structs and tuple structs, and support all algebraic traits: `Semigroup`, `Monoid`, `CommutativeMonoid`, `Group`, `AbelianGroup`, `JoinSemilattice`, `BoundedJoinSemilattice`, `MeetSemilattice`, and `BoundedMeetSemilattice`.
 
 ### Propagator networks
 

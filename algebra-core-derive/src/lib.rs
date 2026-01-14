@@ -20,6 +20,10 @@
 //! - **`#[derive(JoinSemilattice)]`** — implements `join` by joining each field
 //! - **`#[derive(BoundedJoinSemilattice)]`** — implements `bottom()` by calling `bottom()` on each field
 //!
+//! ### Meet-semilattice hierarchy
+//! - **`#[derive(MeetSemilattice)]`** — implements `meet` by meeting each field
+//! - **`#[derive(BoundedMeetSemilattice)]`** — implements `top()` by calling `top()` on each field
+//!
 //! ## Usage
 //!
 //! These macros are re-exported through `algebra-core` when the `derive` feature is enabled:
@@ -513,6 +517,131 @@ pub fn derive_bounded_join_semilattice(input: TokenStream) -> TokenStream {
         #where_clause
         {
             fn bottom() -> Self {
+                #construction
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+/// Derive macro for [`MeetSemilattice`](https://docs.rs/algebra-core/latest/algebra_core/trait.MeetSemilattice.html).
+///
+/// Implements `MeetSemilattice` for a struct by meeting each field componentwise.
+///
+/// # Example
+///
+/// ```ignore
+/// #[derive(MeetSemilattice)]
+/// struct Foo {
+///     counter: Min<i32>,  // meet = min
+///     tags: HashSet<String>,  // meet = intersection
+/// }
+/// ```
+#[proc_macro_derive(MeetSemilattice)]
+pub fn derive_meet_semilattice(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+
+    let (field_accessors, field_types) = match get_fields(&input) {
+        Ok(f) => f,
+        Err(ts) => return ts,
+    };
+
+    let mut generics = input.generics.clone();
+    {
+        let where_clause = generics.make_where_clause();
+        for ty in &field_types {
+            where_clause
+                .predicates
+                .push(parse_quote!(#ty: ::algebra_core::MeetSemilattice));
+        }
+    }
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    // Generate meet expressions for each field
+    let meet_exprs: Vec<_> = field_accessors
+        .iter()
+        .map(|accessor| {
+            quote! { ::algebra_core::MeetSemilattice::meet(&self.#accessor, &other.#accessor) }
+        })
+        .collect();
+
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        _ => unreachable!(),
+    };
+    let construction = construct_struct(name, fields, &meet_exprs);
+
+    let expanded = quote! {
+        impl #impl_generics ::algebra_core::MeetSemilattice for #name #ty_generics
+        #where_clause
+        {
+            fn meet(&self, other: &Self) -> Self {
+                #construction
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+/// Derive macro for [`BoundedMeetSemilattice`](https://docs.rs/algebra-core/latest/algebra_core/trait.BoundedMeetSemilattice.html).
+///
+/// Implements `BoundedMeetSemilattice` for a struct by constructing `top()`
+/// from each field's top element.
+///
+/// # Example
+///
+/// ```ignore
+/// #[derive(MeetSemilattice, BoundedMeetSemilattice)]
+/// struct Foo {
+///     counter: Min<i32>,  // top = i32::MAX
+///     flag: bool,  // top = true
+/// }
+/// ```
+#[proc_macro_derive(BoundedMeetSemilattice)]
+pub fn derive_bounded_meet_semilattice(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+
+    let (_field_accessors, field_types) = match get_fields(&input) {
+        Ok(f) => f,
+        Err(ts) => return ts,
+    };
+
+    let mut generics = input.generics.clone();
+    {
+        let where_clause = generics.make_where_clause();
+        for ty in &field_types {
+            where_clause
+                .predicates
+                .push(parse_quote!(#ty: ::algebra_core::BoundedMeetSemilattice));
+        }
+    }
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    // Generate top expressions for each field
+    let top_exprs: Vec<_> = field_types
+        .iter()
+        .map(|_ty| {
+            quote! { ::algebra_core::BoundedMeetSemilattice::top() }
+        })
+        .collect();
+
+    let fields = match &input.data {
+        Data::Struct(s) => &s.fields,
+        _ => unreachable!(),
+    };
+    let construction = construct_struct(name, fields, &top_exprs);
+
+    let expanded = quote! {
+        impl #impl_generics ::algebra_core::BoundedMeetSemilattice for #name #ty_generics
+        #where_clause
+        {
+            fn top() -> Self {
                 #construction
             }
         }
