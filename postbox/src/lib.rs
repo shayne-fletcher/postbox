@@ -144,4 +144,3 @@ pub use lattice::BoundedMeetSemilattice;
 pub use lattice::JoinSemilattice;
 pub use lattice::Lattice;
 pub use lattice::MeetSemilattice;
-
