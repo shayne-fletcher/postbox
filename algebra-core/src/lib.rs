@@ -20,6 +20,13 @@
 //! - [`Lattice`]: both join and meet operations
 //! - [`BoundedLattice`]: lattice with both bottom and top elements
 //!
+//! ### Recursion schemes
+//!
+//! - [`TypeApp`]: higher-kinded type encoding
+//! - [`Functor1`]: functor on one type parameter
+//! - [`Fix`]: least fixed point (μF) for recursive data structures
+//! - [`fold`]: fold / catamorphism for `Fix` (given an F-algebra)
+//!
 //! ## Quick start
 //!
 //! ```rust
@@ -85,6 +92,9 @@
 
 // Make the current crate visible as `algebra_core` for consistency
 extern crate self as algebra_core;
+
+pub mod fix;
+pub use fix::{fold, Fix, Functor1, TypeApp};
 
 /// A **semigroup**: a type with an associative binary operation.
 ///
@@ -1332,10 +1342,10 @@ mod tests {
     #[test]
     fn bool_is_bounded_lattice() {
         // join = OR, meet = AND
-        assert_eq!(true.join(&false), true);
-        assert_eq!(true.meet(&false), false);
-        assert_eq!(bool::bottom(), false);
-        assert_eq!(bool::top(), true);
+        assert!(true.join(&false));
+        assert!(!true.meet(&false));
+        assert!(!bool::bottom());
+        assert!(bool::top());
     }
 
     #[test]

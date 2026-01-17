@@ -191,7 +191,7 @@ jobs:
           <ul class="crate-list">
             <li>
               <h2><a href="algebra_core/index.html">algebra-core</a></h2>
-              <p>Core algebraic abstractions: Semigroup, Monoid, Group, and Semilattice traits with implementations for std types.</p>
+              <p>Core algebraic abstractions: Semigroup, Monoid, Group, Semilattice traits, plus fixed-point types (<code>Fix</code>, <code>fold</code>) for recursion schemes.</p>
             </li>
             <li>
               <h2><a href="algebra_core_derive/index.html">algebra-core-derive</a></h2>

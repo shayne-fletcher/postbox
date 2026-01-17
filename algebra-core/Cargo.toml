@@ -2,7 +2,7 @@
 name = "algebra-core"
 version = "0.1.0"
 edition = "2021"
-description = "Core algebraic abstractions: Semigroup, Monoid, Group, and related traits"
+description = "Core algebraic abstractions: Semigroup, Monoid, Group, Semilattice traits, plus fixed-point types for recursion schemes"
 license = "BSD-3-Clause"
 repository = "https://github.com/shayne-fletcher/algebra-core"
 readme = "README.md"
