@@ -1,5 +1,5 @@
+//! # Fixed-point types and recursion schemes
 //!
-//! Fixed-point types and recursion schemes.
 //! This module provides the building blocks for recursion schemes in Rust:
 //!
 //! - [`TypeApp`]: Higher-kinded type encoding
@@ -140,52 +140,156 @@ pub trait Functor: TypeApp {
 /// Fix<F> ≅ F(Fix<F>)
 /// ```
 ///
-/// This is the type-level analog of solving `x = f(x)`. Consider a base
-/// functor `ListF<A, X> = Nil | Cons(A, X)` where `X` is a hole. Applying
-/// `Fix` plugs `Fix<ListF<A, _>>` into that hole:
+/// # Why `Fix<F>` satisfies `X ≅ F(X)` (for a Haskeller)
 ///
-/// ```text
-/// Fix<ListF<A, _>> ≅ ListF<A, Fix<ListF<A, _>>>
-///                  = Nil | Cons(A, Fix<ListF<A, _>>)
+/// We freely mix real Haskell syntax with informal *type-equation
+/// expansions* to show what the types *mean*. Some lines below are
+/// explanatory and are not meant to compile literally.
+///
+/// Start with an ordinary recursive datatype:
+///
+/// ```haskell
+/// data List a = Nil | Cons a (List a)
 /// ```
 ///
-/// Calling this type `List<A>`, we get `List<A> = Nil | Cons(A, List<A>)`
-/// — the recursive definition of a list.
-///
-/// The isomorphism is witnessed by two functions:
-///
-/// - [`Fix::new`]: `F(Fix<F>) → Fix<F>`
-/// - [`Fix::out`]: `Fix<F> → F(Fix<F>)`
-///
-/// These are inverses: `new(out(x)) = x` and `out(new(y)) = y`.
-///
-/// The `Box` in our implementation is just indirection to make
-/// the recursive type representable in memory — it doesn't affect
-/// the math.
-///
-/// # Why "least"?
-///
-/// The "least" in "least fixed point" comes from domain theory. By
-/// Kleene's fixed point theorem, μf can be computed as a join
-/// (least upper bound) of an ascending chain:
+/// Read this as a sum/product equation over values:
 ///
 /// ```text
-/// μf = ⊔{fⁿ(⊥) | n ∈ ℕ} = ⊥ ⊔ f(⊥) ⊔ f(f(⊥)) ⊔ ...
+/// List a ≅ 1 + (a × List a)
 /// ```
 ///
-/// Concretely, for `ExprF<X> = Lit(i32) | Add(X, X)`:
+/// where:
 ///
-/// - E₀ = ⊥ (empty)
-/// - E₁ = Lit(n)
-/// - E₂ = Lit(n) | Add(Lit, Lit)
-/// - E₃ = Lit(n) | Add(E₂, E₂)
+/// - `1` is the singleton set (the `Nil` case),
+/// - `+` is disjoint sum (choice of constructor),
+/// - `×` is product (constructor arguments).
+///
+/// At this point we are no longer doing category theory — we are
+/// solving a *type equation*. A recursive datatype is precisely one
+/// whose values are defined in terms of smaller values of the same
+/// type. Writing the constructors this way makes that explicit: we
+/// are looking for a type `X` such that `X` appears on both sides of
+/// its own definition. That is exactly what a fixed point is.
+///
+/// Now factor out the recursive position by naming the shape that
+/// still has a hole.
+///
+/// In Haskell syntax:
+///
+/// ```haskell
+/// data ListF a x = Nil | Cons a x
+/// ```
+///
+/// Schematic (equational) form of the same declaration:
+///
+/// ```text
+/// ListF a X = 1 + (a × X)
+/// ```
+///
+/// This separates the *shape* of the structure from the recursion
+/// itself.
+///
+/// Substituting the original type back into the hole gives:
+///
+/// ```text
+/// List a ≅ ListF a (List a)
+/// ```
+///
+/// which is exactly the fixed-point equation:
+///
+/// ```text
+/// X ≅ F(X)
+/// ```
+///
+/// with `X = List a` and `F = ListF a`.
+///
+/// We write `≅` (isomorphism), not `=`, because recursive types are
+/// represented by wrappers, not by definitional equality. In Haskell
+/// this is explicit:
+///
+/// ```haskell
+/// newtype Fix f = Fix (f (Fix f))
+///
+/// unFix :: Fix f -> f (Fix f)
+/// ```
+///
+/// In Rust, direct self-recursion is not representable without
+/// indirection, so `Fix<F>` stores `F::Applied<Fix<F>>` inside a
+/// `Box`. This establishes the same isomorphism by construction
+/// rather than by definitional equality.
+///
+/// Unrolling makes the correspondence concrete by showing what "one
+/// layer" means.
+///
+/// Specialize `Fix` to lists:
+///
+/// ```haskell
+/// type List a = Fix (ListF a)
+/// ```
+///
+/// Now compute `unFix` at that specialization:
+///
+/// ```haskell
+/// unFix :: List a -> ListF a (List a)
+///       :: Fix (ListF a) -> ListF a (Fix (ListF a))
+///
+/// -- meta-level expansion of the constructors (not valid Haskell syntax)
+///       :: Fix (ListF a) -> (Nil | Cons a (Fix (ListF a)))
+/// ```
+///
+/// That final line is not Haskell code — it is the semantic expansion
+/// of the datatype. It shows that one step of unrolling a list yields
+/// exactly one constructor layer: either `Nil`, or `Cons a` paired
+/// with a recursive tail.
+///
+/// In Rust, the same unrolling exists with different names and
+/// explicit indirection:
+///
+/// ```text
+/// Fix<F>::out : Fix<F> -> F::Applied<Fix<F>>
+/// ```
+///
+/// For `F = ListTag<A>` where `F::Applied<X> = ListF<A, X>`:
+///
+/// ```text
+/// Fix<ListTag<A>>::out : Fix<ListTag<A>> -> ListF<A, Fix<ListTag<A>>>
+/// ```
+///
+/// The `Box` is purely representational — it makes the recursive type
+/// finite in memory — and does not change the mathematical meaning of
+/// the unrolling.
+///
+/// # Why "least" fixed point?
+///
+/// The equation `X = F(X)` can have multiple solutions, including
+/// infinite, non-well-founded ones. The least fixed point `μF` is the
+/// smallest solution closed under the constructors — the inductive
+/// (finite) values.
+///
+/// In domain-theoretic terms, `μF` is the join of an ascending chain:
+///
+/// ```text
+/// μF = ⊔{Fⁿ(⊥) | n ∈ ℕ}
+/// ```
+///
+/// For a concrete intuition, let:
+///
+/// ```text
+/// ExprF<X> = Lit(i32) | Add(X, X)
+/// ```
+///
+/// Then:
+///
+/// - `E₀ = ⊥` (empty)
+/// - `E₁ = Lit(n)`
+/// - `E₂ = Lit(n) | Add(Lit, Lit)`
+/// - `E₃ = Lit(n) | Add(E₂, E₂)`
 /// - ...
-/// - μExprF = ⊔Eₙ = all finite expression trees
+/// - `μExprF = ⊔Eₙ` = all finite expression trees
 ///
-/// Each Eₙ is expressions of depth ≤ n. The fixed point is the join.
-///
-/// This connects recursion schemes to the lattice theory in
-/// this crate.
+/// Each stage adds one more layer of depth. The fixed point is the
+/// union of all finite stages — exactly the recursive datatype we
+/// intend to model.
 ///
 /// # `Send` / `Sync`
 ///
