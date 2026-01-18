@@ -23,7 +23,7 @@
 //! ### Recursion schemes
 //!
 //! - [`TypeApp`]: higher-kinded type encoding
-//! - [`Functor1`]: functor on one type parameter
+//! - [`Functor`]: functor on one type parameter
 //! - [`Fix`]: least fixed point (μF) for recursive data structures
 //! - [`fold`]: fold / catamorphism for `Fix` (given an F-algebra)
 //!
@@ -94,7 +94,7 @@
 extern crate self as algebra_core;
 
 pub mod fix;
-pub use fix::{fold, Fix, Functor1, TypeApp};
+pub use fix::{fold, Fix, Functor, TypeApp};
 
 /// A **semigroup**: a type with an associative binary operation.
 ///

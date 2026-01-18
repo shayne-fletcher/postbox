@@ -1,16 +1,16 @@
-//! Fixed-point types and recursion schemes.
 //!
+//! Fixed-point types and recursion schemes.
 //! This module provides the building blocks for recursion schemes in Rust:
 //!
 //! - [`TypeApp`]: Higher-kinded type encoding
-//! - [`Functor1`]: Functor on one type parameter
+//! - [`Functor`]: Functor on one type parameter
 //! - [`Fix`]: Least fixed point (μF)
 //! - [`fold`]: Catamorphism / F-algebra eliminator
 //!
 //! # Example: Linked List
 //!
-//! ```
-//! use algebra_core::fix::{TypeApp, Functor1, Fix, fold};
+//! ```rust
+//! use algebra_core::fix::{TypeApp, Functor, Fix, fold};
 //!
 //! // Base functor for List<A>: ListF<A, X> = Nil | Cons(A, X)
 //! enum ListF<A, X> {
@@ -25,7 +25,7 @@
 //!     type Applied<X> = ListF<A, X>;
 //! }
 //!
-//! impl<A: Clone> Functor1 for ListTag<A> {
+//! impl<A: Clone> Functor for ListTag<A> {
 //!     fn fmap<X, Y, G>(fx: ListF<A, X>, mut g: G) -> ListF<A, Y>
 //!     where
 //!         G: FnMut(X) -> Y,
@@ -62,7 +62,7 @@
 
 use std::fmt::Debug;
 
-/// Encodes a type constructor `F(-)` as a trait.
+/// A **type constructor** encoding via associated types.
 ///
 /// Rust lacks higher-kinded types, so we encode `F : Type → Type` as:
 /// - A marker type `F` (the "tag")
@@ -70,7 +70,7 @@ use std::fmt::Debug;
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// use algebra_core::fix::TypeApp;
 ///
 /// // Option as a type constructor
@@ -88,20 +88,24 @@ pub trait TypeApp {
     type Applied<X>;
 }
 
-/// A functor on the recursive position.
+/// A **functor** for type constructors.
 ///
-/// This is a functor in the category-theoretic sense: it maps objects (types)
-/// and morphisms (functions) while preserving identity and composition.
+/// The `: TypeApp` bound is a kind signature — it says `Functor` is for
+/// type constructors (`* -> *`), not a behavioral dependency.
 ///
-/// # Laws
+/// This is a functor in the category-theoretic sense: it maps objects
+/// (types) and morphisms (functions) while preserving identity and
+/// composition.
 ///
-/// - **Identity**: `fmap(fx, |x| x) == fx`
-/// - **Composition**: `fmap(fmap(fx, f), g) == fmap(fx, |x| g(f(x)))`
+/// Laws (not enforced by type system):
+///
+/// - **Identity**: `fmap id = id`
+/// - **Composition**: `fmap g ∘ fmap f = fmap (g ∘ f)`
 ///
 /// # Example
 ///
-/// ```
-/// use algebra_core::fix::{TypeApp, Functor1};
+/// ```rust
+/// use algebra_core::fix::{TypeApp, Functor};
 ///
 /// // A simple container
 /// struct Pair<X>(X, X);
@@ -112,7 +116,7 @@ pub trait TypeApp {
 ///     type Applied<X> = Pair<X>;
 /// }
 ///
-/// impl Functor1 for PairTag {
+/// impl Functor for PairTag {
 ///     fn fmap<X, Y, G>(fx: Pair<X>, mut g: G) -> Pair<Y>
 ///     where
 ///         G: FnMut(X) -> Y,
@@ -121,22 +125,67 @@ pub trait TypeApp {
 ///     }
 /// }
 /// ```
-pub trait Functor1: TypeApp {
-    /// Map a function over the recursive positions.
+pub trait Functor: TypeApp {
+    /// Map a function over the holes (type parameter positions).
     fn fmap<X, Y, G>(fx: Self::Applied<X>, g: G) -> Self::Applied<Y>
     where
         G: FnMut(X) -> Y;
 }
 
-/// μF: the least fixed point of a functor F.
+/// The **least fixed point** (μF) of a functor F.
 ///
-/// `Fix<F>` is the initial F-algebra, satisfying the isomorphism:
+/// `Fix<F>` satisfies the isomorphism:
 ///
 /// ```text
 /// Fix<F> ≅ F(Fix<F>)
 /// ```
 ///
-/// This allows representing recursive data structures generically.
+/// This is the type-level analog of solving `x = f(x)`. Consider a base
+/// functor `ListF<A, X> = Nil | Cons(A, X)` where `X` is a hole. Applying
+/// `Fix` plugs `Fix<ListF<A, _>>` into that hole:
+///
+/// ```text
+/// Fix<ListF<A, _>> ≅ ListF<A, Fix<ListF<A, _>>>
+///                  = Nil | Cons(A, Fix<ListF<A, _>>)
+/// ```
+///
+/// Calling this type `List<A>`, we get `List<A> = Nil | Cons(A, List<A>)`
+/// — the recursive definition of a list.
+///
+/// The isomorphism is witnessed by two functions:
+///
+/// - [`Fix::new`]: `F(Fix<F>) → Fix<F>`
+/// - [`Fix::out`]: `Fix<F> → F(Fix<F>)`
+///
+/// These are inverses: `new(out(x)) = x` and `out(new(y)) = y`.
+///
+/// The `Box` in our implementation is just indirection to make
+/// the recursive type representable in memory — it doesn't affect
+/// the math.
+///
+/// # Why "least"?
+///
+/// The "least" in "least fixed point" comes from domain theory. By
+/// Kleene's fixed point theorem, μf can be computed as a join
+/// (least upper bound) of an ascending chain:
+///
+/// ```text
+/// μf = ⊔{fⁿ(⊥) | n ∈ ℕ} = ⊥ ⊔ f(⊥) ⊔ f(f(⊥)) ⊔ ...
+/// ```
+///
+/// Concretely, for `ExprF<X> = Lit(i32) | Add(X, X)`:
+///
+/// - E₀ = ⊥ (empty)
+/// - E₁ = Lit(n)
+/// - E₂ = Lit(n) | Add(Lit, Lit)
+/// - E₃ = Lit(n) | Add(E₂, E₂)
+/// - ...
+/// - μExprF = ⊔Eₙ = all finite expression trees
+///
+/// Each Eₙ is expressions of depth ≤ n. The fixed point is the join.
+///
+/// This connects recursion schemes to the lattice theory in
+/// this crate.
 ///
 /// # `Send` / `Sync`
 ///
@@ -145,7 +194,7 @@ pub trait Functor1: TypeApp {
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// use algebra_core::fix::{TypeApp, Fix};
 ///
 /// // Natural numbers: Nat = Zero | Succ(Nat)
@@ -162,8 +211,11 @@ pub trait Functor1: TypeApp {
 ///
 /// type Nat = Fix<NatTag>;
 ///
-/// let zero: Nat = Fix::new(NatF::Zero);
-/// let one: Nat = Fix::new(NatF::Succ(zero));
+/// // Smart constructors hide the Fix::new calls
+/// fn zero() -> Nat { Fix::new(NatF::Zero) }
+/// fn succ(n: Nat) -> Nat { Fix::new(NatF::Succ(n)) }
+///
+/// let two = succ(succ(zero()));
 /// ```
 #[repr(transparent)]
 pub struct Fix<F: TypeApp>(Box<F::Applied<Fix<F>>>);
@@ -229,28 +281,29 @@ where
 {
 }
 
-/// Catamorphism: fold a recursive structure using an F-algebra.
+/// A **catamorphism**: fold a recursive structure using an F-algebra.
 ///
-/// Given an algebra `alg : F(A) → A`, this produces a function `Fix<F> → A`
-/// that recursively applies the algebra from the leaves up.
+/// Given an algebra `alg : F(A) → A`, this produces a function
+/// `Fix<F> → A` that recursively applies the algebra from the
+/// leaves up.
 ///
 /// # Stack Safety
 ///
-/// This implementation uses direct recursion. The risk of stack overflow is
-/// proportional to the **recursion depth**, not the total size of the
-/// structure.
+/// This implementation uses direct recursion. The risk of stack
+/// overflow is proportional to the **recursion depth**, not the total
+/// size of the structure.
 ///
 /// - **Balanced trees**: Typically safe (depth ≈ log(n))
 /// - **Skewed structures** (e.g., long linked lists): May overflow
 ///
-/// Stack overflow typically occurs around ~10k frames on common platforms,
-/// but this varies. For very deep structures, consider using the `stacker`
-/// crate or an iterative approach.
+/// Stack overflow typically occurs around ~10k frames on common
+/// platforms, but this varies. For very deep structures, consider
+/// using the `stacker` crate or an iterative approach.
 ///
 /// # Example
 ///
-/// ```
-/// use algebra_core::fix::{TypeApp, Functor1, Fix, fold};
+/// ```rust
+/// use algebra_core::fix::{TypeApp, Functor, Fix, fold};
 ///
 /// // Expression tree: Expr = Lit(i32) | Add(Expr, Expr)
 /// enum ExprF<X> {
@@ -264,7 +317,7 @@ where
 ///     type Applied<X> = ExprF<X>;
 /// }
 ///
-/// impl Functor1 for ExprTag {
+/// impl Functor for ExprTag {
 ///     fn fmap<X, Y, G>(fx: ExprF<X>, mut g: G) -> ExprF<Y>
 ///     where
 ///         G: FnMut(X) -> Y,
@@ -298,12 +351,12 @@ where
 /// ```
 pub fn fold<F, A>(t: Fix<F>, alg: impl FnMut(F::Applied<A>) -> A) -> A
 where
-    F: Functor1,
+    F: Functor,
 {
     // Internal helper avoids moving the closure on each recursive call
     fn go<F, A>(t: Fix<F>, alg: &mut impl FnMut(F::Applied<A>) -> A) -> A
     where
-        F: Functor1,
+        F: Functor,
     {
         let node = t.out();
         let mapped = F::fmap(node, |child| go::<F, A>(child, alg));
@@ -318,9 +371,7 @@ where
 mod tests {
     use super::*;
 
-    // ================================================================
     // Test fixtures: ListF as base functor
-    // ================================================================
 
     // Note: We don't derive Clone/Debug/PartialEq on ListF because
     // the derived impls cause trait resolution overflow when used
@@ -331,7 +382,8 @@ mod tests {
         Cons(A, X),
     }
 
-    // Manual implementations for non-recursive X (used in functor law tests)
+    // Manual implementations for non-recursive X (used in functor law
+    // tests)
     impl<A: Clone, X: Clone> Clone for ListF<A, X> {
         fn clone(&self) -> Self {
             match self {
@@ -368,7 +420,7 @@ mod tests {
         type Applied<X> = ListF<A, X>;
     }
 
-    impl<A: Clone> Functor1 for ListTag<A> {
+    impl<A: Clone> Functor for ListTag<A> {
         fn fmap<X, Y, G>(fx: ListF<A, X>, mut g: G) -> ListF<A, Y>
         where
             G: FnMut(X) -> Y,
@@ -405,9 +457,7 @@ mod tests {
         })
     }
 
-    // ================================================================
     // Fix tests
-    // ================================================================
 
     #[test]
     fn fix_new_and_out_are_inverses() {
@@ -444,15 +494,14 @@ mod tests {
 
     #[test]
     fn fix_operations_preserve_structure() {
-        // Build a list and verify via fold that structure is preserved
+        // Build a list and verify via fold that structure is
+        // preserved
         let list = cons(1, cons(2, cons(3, nil())));
         let vec = to_vec(list);
         assert_eq!(vec, vec![1, 2, 3]);
     }
 
-    // ================================================================
     // fold tests
-    // ================================================================
 
     #[test]
     fn fold_computes_length() {
@@ -491,9 +540,8 @@ mod tests {
         assert_eq!(length, 0);
     }
 
-    // ================================================================
-    // Functor law tests (using non-recursive X to enable Clone/PartialEq)
-    // ================================================================
+    // Functor law tests (using non-recursive X to enable
+    // Clone/PartialEq)
 
     #[test]
     fn functor_identity_law() {
@@ -540,9 +588,7 @@ mod tests {
         assert_eq!(left, right);
     }
 
-    // ================================================================
     // Expression tree example (from docs)
-    // ================================================================
 
     enum ExprF<X> {
         Lit(i32),
@@ -555,7 +601,7 @@ mod tests {
         type Applied<X> = ExprF<X>;
     }
 
-    impl Functor1 for ExprTag {
+    impl Functor for ExprTag {
         fn fmap<X, Y, G>(fx: ExprF<X>, mut g: G) -> ExprF<Y>
         where
             G: FnMut(X) -> Y,
