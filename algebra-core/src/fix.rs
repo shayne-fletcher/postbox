@@ -1,6 +1,7 @@
 //! # Fixed-point types and recursion schemes
 //!
-//! This module provides the building blocks for recursion schemes in Rust:
+//! This module provides the building blocks for recursion schemes in
+//! Rust:
 //!
 //! - [`TypeApp`]: Higher-kinded type encoding
 //! - [`Functor`]: Functor on one type parameter
