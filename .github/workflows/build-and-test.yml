@@ -190,20 +190,12 @@ jobs:
           <h2>Crates</h2>
           <ul class="crate-list">
             <li>
-              <h2><a href="algebra_core/index.html">algebra-core</a></h2>
-              <p>Core algebraic abstractions: Semigroup, Monoid, Group, Semilattice traits, plus fixed-point types (<code>Fix</code>, <code>fold</code>) for recursion schemes.</p>
-            </li>
-            <li>
-              <h2><a href="algebra_core_derive/index.html">algebra-core-derive</a></h2>
-              <p>Derive macros for automatically implementing algebraic traits.</p>
-            </li>
-            <li>
               <h2><a href="autodiff/index.html">autodiff</a></h2>
               <p>Automatic differentiation: forward-mode and reverse-mode AD with support for single-variable and multivariable functions.</p>
             </li>
             <li>
               <h2><a href="postbox/index.html">postbox</a></h2>
-              <p>Lattice-based state library: concrete lattice types, LVars, MVars, CRDTs, and stream extensions built on algebra-core.</p>
+              <p>Lattice-based state library: concrete lattice types, LVars, MVars, CRDTs, and stream extensions built on <a href="https://github.com/shayne-fletcher/axiom">axiom</a>.</p>
             </li>
           </ul>
 

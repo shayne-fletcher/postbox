@@ -10,10 +10,13 @@
 Algebraic abstractions and computational tools for Rust.
 
 This workspace contains:
-- **`algebra-core`**: Core algebraic abstractions (Semigroup, Monoid, Group, Semilattice)
-- **`algebra-core-derive`**: Derive macros for algebraic traits
 - **`autodiff`**: Automatic differentiation (forward-mode and reverse-mode)
-- **`postbox`**: Lattice-based state, LVars, MVars, and CRDTs built on algebra-core
+- **`postbox`**: Lattice-based state, LVars, MVars, and CRDTs built on
+  [`axiom`](https://github.com/shayne-fletcher/axiom)
+
+The core algebraic abstractions (Semigroup, Monoid, Group, lattices, and their
+derive macros) now live in [`axiom`](https://github.com/shayne-fletcher/axiom);
+`postbox` depends on it and re-exports what it uses.
 
 ## Getting Started
 
@@ -24,7 +27,7 @@ Add `postbox` to your `Cargo.toml`:
 postbox = "0.1"
 ```
 
-By default, all features are enabled. The `postbox` crate re-exports all traits from `algebra-core`, so you can use everything through `postbox`. If you only need the algebraic abstractions without async cells or CRDTs, you can depend on `algebra-core` directly.
+By default, all features are enabled. The `postbox` crate re-exports all traits from `axiom`, so you can use everything through `postbox`. If you only need the algebraic abstractions without async cells or CRDTs, you can depend on `axiom` directly.
 
 ## Cargo Features
 
@@ -60,7 +63,7 @@ postbox = { version = "0.1", default-features = false, features = ["derive"] }
 
 ## Features
 
-### Core traits (from `algebra-core`):
+### Core traits (from `axiom`):
 - `Semigroup`, `Monoid`, `CommutativeMonoid`: basic algebraic structures
 - `Group`, `AbelianGroup`: invertible algebraic structures
 - `JoinSemilattice`, `BoundedJoinSemilattice`: join-semilattice traits (least upper bound)

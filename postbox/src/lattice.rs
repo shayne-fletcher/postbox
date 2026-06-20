@@ -2,7 +2,7 @@
 //!
 //! This module re-exports [`JoinSemilattice`], [`BoundedJoinSemilattice`],
 //! [`MeetSemilattice`], [`BoundedMeetSemilattice`], [`Lattice`], and
-//! [`BoundedLattice`] from [`algebra_core`], plus provides a small
+//! [`BoundedLattice`] from [`axiom`], plus provides a small
 //! toolkit of concrete lattices and combinators that are convenient
 //! for CRDTs and other monotone data structures.
 //!
@@ -60,8 +60,8 @@
 //! CRDTs in this crate build on them to express their replica states
 //! as lattices with well-defined, convergent merge operations.
 
-// Re-export traits from algebra-core
-pub use algebra_core::{
+// Re-export traits from axiom
+pub use axiom::{
     BoundedJoinSemilattice, BoundedLattice, BoundedMeetSemilattice, JoinSemilattice, Lattice,
     MeetSemilattice,
 };
@@ -108,9 +108,9 @@ impl<T> From<T> for Max<T> {
     }
 }
 
-// algebra-core trait implementations for Max
+// axiom trait implementations for Max
 
-impl<T: Ord + Clone> algebra_core::Semigroup for Max<T> {
+impl<T: Ord + Clone> axiom::Semigroup for Max<T> {
     fn combine(&self, other: &Self) -> Self {
         self.join(other)
     }
@@ -120,7 +120,7 @@ impl<T: Ord + Clone> algebra_core::Semigroup for Max<T> {
     }
 }
 
-impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Max<T> {
+impl<T: Ord + Clone + Default + num_traits::Bounded> axiom::Monoid for Max<T> {
     fn empty() -> Self {
         Self::bottom()
     }
@@ -133,7 +133,7 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Ma
     }
 }
 
-impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::CommutativeMonoid for Max<T> {}
+impl<T: Ord + Clone + Default + num_traits::Bounded> axiom::CommutativeMonoid for Max<T> {}
 
 impl<T: Ord + Clone> MeetSemilattice for Max<T> {
     fn meet(&self, other: &Self) -> Self {
@@ -188,9 +188,9 @@ impl<T> From<T> for Min<T> {
     }
 }
 
-// algebra-core trait implementations for Min
+// axiom trait implementations for Min
 
-impl<T: Ord + Clone> algebra_core::Semigroup for Min<T> {
+impl<T: Ord + Clone> axiom::Semigroup for Min<T> {
     fn combine(&self, other: &Self) -> Self {
         self.join(other)
     }
@@ -200,7 +200,7 @@ impl<T: Ord + Clone> algebra_core::Semigroup for Min<T> {
     }
 }
 
-impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Min<T> {
+impl<T: Ord + Clone + Default + num_traits::Bounded> axiom::Monoid for Min<T> {
     fn empty() -> Self {
         Self::bottom()
     }
@@ -213,7 +213,7 @@ impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::Monoid for Mi
     }
 }
 
-impl<T: Ord + Clone + Default + num_traits::Bounded> algebra_core::CommutativeMonoid for Min<T> {}
+impl<T: Ord + Clone + Default + num_traits::Bounded> axiom::CommutativeMonoid for Min<T> {}
 
 impl<T: Ord + Clone> MeetSemilattice for Min<T> {
     fn meet(&self, other: &Self) -> Self {
@@ -277,9 +277,9 @@ impl From<bool> for Any {
     }
 }
 
-// algebra-core trait implementations for Any
+// axiom trait implementations for Any
 
-impl algebra_core::Semigroup for Any {
+impl axiom::Semigroup for Any {
     fn combine(&self, other: &Self) -> Self {
         self.join(other)
     }
@@ -289,7 +289,7 @@ impl algebra_core::Semigroup for Any {
     }
 }
 
-impl algebra_core::Monoid for Any {
+impl axiom::Monoid for Any {
     fn empty() -> Self {
         Self::bottom()
     }
@@ -302,7 +302,7 @@ impl algebra_core::Monoid for Any {
     }
 }
 
-impl algebra_core::CommutativeMonoid for Any {}
+impl axiom::CommutativeMonoid for Any {}
 
 impl MeetSemilattice for Any {
     fn meet(&self, other: &Self) -> Self {
@@ -364,9 +364,9 @@ impl From<bool> for All {
     }
 }
 
-// algebra-core trait implementations for All
+// axiom trait implementations for All
 
-impl algebra_core::Semigroup for All {
+impl axiom::Semigroup for All {
     fn combine(&self, other: &Self) -> Self {
         self.join(other)
     }
@@ -376,7 +376,7 @@ impl algebra_core::Semigroup for All {
     }
 }
 
-impl algebra_core::Monoid for All {
+impl axiom::Monoid for All {
     fn empty() -> Self {
         Self::bottom()
     }
@@ -389,7 +389,7 @@ impl algebra_core::Monoid for All {
     }
 }
 
-impl algebra_core::CommutativeMonoid for All {}
+impl axiom::CommutativeMonoid for All {}
 
 impl MeetSemilattice for All {
     fn meet(&self, other: &Self) -> Self {
@@ -496,9 +496,9 @@ impl<T> From<T> for BitOr<T> {
     }
 }
 
-// algebra-core trait implementations for BitOr
+// axiom trait implementations for BitOr
 
-impl<T> algebra_core::Semigroup for BitOr<T>
+impl<T> axiom::Semigroup for BitOr<T>
 where
     T: Copy + std::ops::BitOr<Output = T>,
 {
@@ -511,7 +511,7 @@ where
     }
 }
 
-impl<T> algebra_core::Monoid for BitOr<T>
+impl<T> axiom::Monoid for BitOr<T>
 where
     T: Copy + std::ops::BitOr<Output = T> + Default,
 {
@@ -527,10 +527,7 @@ where
     }
 }
 
-impl<T> algebra_core::CommutativeMonoid for BitOr<T> where
-    T: Copy + std::ops::BitOr<Output = T> + Default
-{
-}
+impl<T> axiom::CommutativeMonoid for BitOr<T> where T: Copy + std::ops::BitOr<Output = T> + Default {}
 
 impl<T> MeetSemilattice for BitOr<T>
 where
@@ -648,9 +645,9 @@ impl<T> From<T> for BitAnd<T> {
     }
 }
 
-// algebra-core trait implementations for BitAnd
+// axiom trait implementations for BitAnd
 
-impl<T> algebra_core::Semigroup for BitAnd<T>
+impl<T> axiom::Semigroup for BitAnd<T>
 where
     T: Copy + std::ops::BitAnd<Output = T>,
 {
@@ -663,7 +660,7 @@ where
     }
 }
 
-impl<T> algebra_core::Monoid for BitAnd<T>
+impl<T> axiom::Monoid for BitAnd<T>
 where
     T: Copy + std::ops::BitAnd<Output = T> + num_traits::Bounded,
 {
@@ -679,7 +676,7 @@ where
     }
 }
 
-impl<T> algebra_core::CommutativeMonoid for BitAnd<T> where
+impl<T> axiom::CommutativeMonoid for BitAnd<T> where
     T: Copy + std::ops::BitAnd<Output = T> + num_traits::Bounded
 {
 }
@@ -1531,11 +1528,11 @@ mod tests {
         }
     }
 
-    // Tests for algebra-core integration
+    // Tests for axiom integration
 
     #[test]
     fn lattice_is_semigroup() {
-        use algebra_core::Semigroup;
+        use axiom::Semigroup;
 
         let x: Max<i32> = 3.into();
         let y: Max<i32> = 5.into();
@@ -1553,7 +1550,7 @@ mod tests {
 
     #[test]
     fn bounded_lattice_is_monoid() {
-        use algebra_core::{Monoid, Semigroup};
+        use axiom::{Monoid, Semigroup};
 
         // empty() works via blanket impl
         let e = Max::<i32>::empty();
@@ -1575,7 +1572,7 @@ mod tests {
 
     #[test]
     fn bounded_lattice_is_commutative_monoid() {
-        use algebra_core::{CommutativeMonoid, Semigroup};
+        use axiom::{CommutativeMonoid, Semigroup};
 
         // Check that we can use the trait bound
         fn use_commutative_monoid<T: CommutativeMonoid>(a: &T, b: &T) -> T {

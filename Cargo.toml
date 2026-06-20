@@ -1,7 +1,5 @@
 [workspace]
 members = [
-    "algebra-core",
-    "algebra-core-derive",
     "autodiff",
     "postbox",
 ]

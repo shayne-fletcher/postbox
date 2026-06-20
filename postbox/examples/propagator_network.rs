@@ -7,7 +7,7 @@
 //!
 //! Run with: `cargo run --example propagator_network`
 
-use algebra_core::{MonoidHom, Semigroup, SemigroupHom, Sum};
+use axiom::{MonoidHom, Semigroup, SemigroupHom, Sum};
 use postbox::lattice::Max;
 use postbox::propagator::{CellId, HomProp, Network, Propagator};
 

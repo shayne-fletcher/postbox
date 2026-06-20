@@ -10,11 +10,11 @@ readme = "README.md"
 [features]
 default = ["async", "derive", "bitflags"]
 async = ["tokio", "futures", "async-trait"]
-derive = ["algebra-core/derive"]
+derive = ["axiom/derive"]
 bitflags = ["dep:bitflags"]
 
 [dependencies]
-algebra-core = { version = "0.1", path = "../algebra-core" }
+axiom = { git = "https://github.com/shayne-fletcher/axiom", rev = "6ab20228e47f724ac61f855a771f9a99725cf36e" }
 num-traits = "0.2"
 # Async + streams
 tokio       = { version = "1.48", default-features = false, features = ["sync","time","macros","rt-multi-thread"], optional = true }

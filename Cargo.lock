@@ -3,23 +3,6 @@
 version = 4
 
 [[package]]
-name = "algebra-core"
-version = "0.1.0"
-dependencies = [
- "algebra-core-derive",
- "num-traits",
-]
-
-[[package]]
-name = "algebra-core-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -40,8 +23,26 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 name = "autodiff"
 version = "0.1.0"
 dependencies = [
- "algebra-core",
  "num-traits",
+]
+
+[[package]]
+name = "axiom"
+version = "0.1.0"
+source = "git+https://github.com/shayne-fletcher/axiom?rev=6ab20228e47f724ac61f855a771f9a99725cf36e#6ab20228e47f724ac61f855a771f9a99725cf36e"
+dependencies = [
+ "axiom-derive",
+ "num-traits",
+]
+
+[[package]]
+name = "axiom-derive"
+version = "0.1.0"
+source = "git+https://github.com/shayne-fletcher/axiom?rev=6ab20228e47f724ac61f855a771f9a99725cf36e#6ab20228e47f724ac61f855a771f9a99725cf36e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -170,8 +171,8 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 name = "postbox"
 version = "0.1.0"
 dependencies = [
- "algebra-core",
  "async-trait",
+ "axiom",
  "bitflags",
  "futures",
  "num-traits",

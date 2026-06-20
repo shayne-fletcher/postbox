@@ -46,7 +46,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use algebra_core::{MonoidHom, Semigroup};
+use axiom::{MonoidHom, Semigroup};
 
 /// A typed identifier for a cell holding values of type `S`.
 ///
@@ -445,7 +445,7 @@ impl Default for Network {
 /// ```rust
 /// use postbox::propagator::{Propagator, Network, CellId};
 /// use postbox::lattice::Max;
-/// use algebra_core::Semigroup;
+/// use axiom::Semigroup;
 ///
 /// // A propagator that computes max(a, b) → c
 /// struct MaxPropagator {
@@ -499,13 +499,13 @@ pub trait Propagator {
 ///
 /// # Type Parameters
 ///
-/// - `H`: A type implementing [`MonoidHom`](algebra_core::MonoidHom)
+/// - `H`: A type implementing [`MonoidHom`](axiom::MonoidHom)
 ///
 /// # Example
 ///
 /// ```rust
 /// use postbox::propagator::{HomProp, Network, CellId, Propagator};
-/// use algebra_core::{MonoidHom, SemigroupHom, Sum};
+/// use axiom::{MonoidHom, SemigroupHom, Sum};
 ///
 /// // True monoid homomorphism: String → Sum<usize> via length
 /// // Preserves structure: length(s1 + s2) = length(s1) + length(s2)
@@ -707,7 +707,7 @@ mod tests {
         #[derive(Debug, Clone, PartialEq)]
         struct Gradient(Vec<f64>);
 
-        impl algebra_core::Semigroup for Gradient {
+        impl axiom::Semigroup for Gradient {
             fn combine(&self, other: &Self) -> Self {
                 assert_eq!(
                     self.0.len(),
@@ -744,7 +744,7 @@ mod tests {
     // a fixed point.
     #[test]
     fn full_propagator_example() {
-        use algebra_core::Semigroup;
+        use axiom::Semigroup;
 
         // Propagator: c = max(a, b)
         struct MaxProp {

@@ -137,7 +137,7 @@ pub mod mvar;
 pub mod propagator;
 
 // Re-export the traits (and derive macros when derive feature is enabled)
-// The derive macros come from algebra_core, which re-exports them from algebra-core-derive
+// The derive macros come from axiom, which re-exports them from axiom-derive
 pub use lattice::BoundedJoinSemilattice;
 pub use lattice::BoundedLattice;
 pub use lattice::BoundedMeetSemilattice;
